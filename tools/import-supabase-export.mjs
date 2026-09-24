@@ -31,13 +31,29 @@ const data = transformSupabaseExport(JSON.parse(readFileSync(file, 'utf8')));
 
 const PASSWORDS_FILE = 'migration-export/temp-passwords.csv';
 mkdirSync('migration-export', { recursive: true });
-writeFileSync(PASSWORDS_FILE, 'email,password\n');
 
+// Don't write the CSV (and truncate any existing one) until importIntoPocketBase
+// has cleared its pre-flight guard — opened lazily on the first user actually
+// created, so a run that's rejected outright (e.g. target already has data)
+// never wipes out a temp-passwords.csv left over from a previous partial run.
+let passwordsFileStarted = false;
 const result = await importIntoPocketBase(pb, data, {
   generatePassword: () => randomBytes(9).toString('base64url'),
-  onUserCreated: ({ email: userEmail, password: userPassword }) => appendFileSync(PASSWORDS_FILE, `${userEmail},${userPassword}\n`),
+  onUserCreated: ({ email: userEmail, password: userPassword }) => {
+    if (!passwordsFileStarted) {
+      writeFileSync(PASSWORDS_FILE, 'email,password\n');
+      passwordsFileStarted = true;
+    }
+    appendFileSync(PASSWORDS_FILE, `${userEmail},${userPassword}\n`);
+  },
 });
 
-console.log('Imported:', result.counts);
-if (data.skippedMixes) console.log(`Skipped ${data.skippedMixes} never-saved draft mix(es).`);
+const { counts } = result;
+const sourceMixes = data.mixes.length + data.skippedMixes;
+console.log('Import summary (source rows read -> records created):');
+console.log(`  Users:            ${data.users.length} -> ${counts.users}`);
+console.log(`  Ingredients:      ${data.ingredients.length} -> ${counts.ingredients}`);
+console.log(`  Price overrides:  ${data.priceOverrides.length} -> ${counts.priceOverrides}`);
+console.log(`  Mixes:            ${sourceMixes} -> ${counts.mixes} imported, ${data.skippedMixes} skipped (never-saved draft), ${counts.mixesSkippedUnknownOwner} skipped (unknown owner)`);
+console.log(`  Settings keys:    ${Object.keys(data.settings).length}`);
 console.log(`Temporary passwords: ${PASSWORDS_FILE}`);

@@ -19,7 +19,9 @@ describe('Supabase import', { skip: SKIP_REASON }, () => {
   after(() => server?.stop());
 
   test('reports counts and temporary passwords', () => {
-    assert.deepEqual(result.counts, { users: 2, ingredients: 2, mixes: 2 });
+    // 'Orphan' (owner_id 'u-ghost') has no matching profile, so it's counted
+    // as skipped for an unknown owner rather than imported.
+    assert.deepEqual(result.counts, { users: 2, ingredients: 2, priceOverrides: 1, mixes: 2, mixesSkippedUnknownOwner: 1 });
     assert.deepEqual(result.tempPasswords.map((p) => p.email), ['ada@test.local', 'rep@test.local']);
   });
 

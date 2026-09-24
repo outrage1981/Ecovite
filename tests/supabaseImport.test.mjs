@@ -29,7 +29,10 @@ test('transform maps settings into the app shapes', () => {
 
 test('transform orders mixes oldest first, uses the latest snapshot, skips snapshot-less mixes', () => {
   const out = transformSupabaseExport(FIXTURE);
-  assert.deepEqual(out.mixes.map((m) => m.name), ['Older', 'Newer']);
+  // 'Orphan' has a snapshot (not a draft) so the transform itself carries it
+  // through unchanged — only importIntoPocketBase knows its owner doesn't
+  // exist and skips it (see the counts test in supabaseImport.integration.test.mjs).
+  assert.deepEqual(out.mixes.map((m) => m.name), ['Older', 'Newer', 'Orphan']);
   assert.equal(out.skippedMixes, 1);
   assert.deepEqual(out.mixes[0], {
     oldOwnerId: 'u-rep', name: 'Older', species: 'cattle', supplement_type: 'maintenance',

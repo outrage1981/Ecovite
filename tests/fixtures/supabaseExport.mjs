@@ -26,6 +26,11 @@ export const FIXTURE = {
     { id: 'm-new', owner_id: 'u-rep', name: 'Newer', species_id: 'cattle', supplement_type_id: 'maintenance', lick_focus: null, is_public: false, created_at: '2026-02-01T00:00:00Z' },
     { id: 'm-old', owner_id: 'u-rep', name: 'Older', species_id: 'cattle', supplement_type_id: 'maintenance', lick_focus: 'protein', is_public: true, created_at: '2026-01-01T00:00:00Z' },
     { id: 'm-draft', owner_id: 'u-rep', name: 'Draft', species_id: 'cattle', supplement_type_id: 'maintenance', lick_focus: null, is_public: false, created_at: '2026-01-15T00:00:00Z' },
+    // Owner not present in `profiles` (e.g. a since-deleted Supabase user) —
+    // transform still carries it through (it has a snapshot, so it isn't a
+    // draft), but importIntoPocketBase must skip it: there's no PocketBase
+    // user id to attach it to.
+    { id: 'm-orphan', owner_id: 'u-ghost', name: 'Orphan', species_id: 'cattle', supplement_type_id: 'maintenance', lick_focus: null, is_public: false, created_at: '2026-03-01T00:00:00Z' },
   ],
   mix_lines: [
     { mix_id: 'm-old', ingredient_id: 'i-urea', inclusion_pct: '100', cost_per_ton: '11000', sort_order: 0 },
@@ -34,5 +39,6 @@ export const FIXTURE = {
     { mix_id: 'm-old', created_at: '2026-01-01T00:00:00Z', snapshot: { savedAt: '2026-01-01T00:00:00Z', lines: [{ ingredientId: 'i-urea' }] } },
     { mix_id: 'm-new', created_at: '2026-02-01T00:00:00Z', snapshot: { savedAt: 'first', lines: [] } },
     { mix_id: 'm-new', created_at: '2026-02-02T00:00:00Z', snapshot: { savedAt: 'second', lines: [] } },
+    { mix_id: 'm-orphan', created_at: '2026-03-01T00:00:00Z', snapshot: { savedAt: 'third', lines: [] } },
   ],
 };

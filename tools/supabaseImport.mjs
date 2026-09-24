@@ -119,10 +119,14 @@ export async function importIntoPocketBase(pb, data, { generatePassword, onUserC
     ingredientIds.set(i.oldId, rec.id);
   }
 
+  let priceOverrideCount = 0;
   for (const o of data.priceOverrides) {
     const owner = userIds.get(o.oldOwnerId);
     const ingredient = ingredientIds.get(o.oldIngredientId);
-    if (owner && ingredient) await pb.collection('price_overrides').create({ owner, ingredient, price_per_ton: o.price_per_ton });
+    if (owner && ingredient) {
+      await pb.collection('price_overrides').create({ owner, ingredient, price_per_ton: o.price_per_ton });
+      priceOverrideCount++;
+    }
   }
 
   for (const [key, value] of Object.entries(data.settings)) {
@@ -132,13 +136,20 @@ export async function importIntoPocketBase(pb, data, { generatePassword, onUserC
   }
 
   let mixCount = 0;
+  let mixesSkippedUnknownOwner = 0;
   for (const m of data.mixes) {
     const owner = userIds.get(m.oldOwnerId);
-    if (!owner) continue;
+    if (!owner) { mixesSkippedUnknownOwner++; continue; }
     const { oldOwnerId, ...mix } = remapIngredientIds(m, ingredientIds);
     await pb.collection('mixes').create({ ...mix, owner });
     mixCount++;
   }
 
-  return { tempPasswords, counts: { users: userIds.size, ingredients: ingredientIds.size, mixes: mixCount } };
+  return {
+    tempPasswords,
+    counts: {
+      users: userIds.size, ingredients: ingredientIds.size, priceOverrides: priceOverrideCount,
+      mixes: mixCount, mixesSkippedUnknownOwner,
+    },
+  };
 }

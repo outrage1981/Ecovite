@@ -17,6 +17,18 @@ const TABLES = [
 ];
 const PAGE = 1000;
 
+// Every table needs a deterministic sort on a unique key, or paging by
+// offset over PostgREST can skip or repeat rows between requests (rows can
+// move relative to an unordered scan as other requests run). Most tables
+// have a plain `id` primary key; a few don't (see sql/001_schema.sql,
+// git show b3b465e:sql/001_schema.sql) and are keyed on the columns that
+// actually make each row unique there.
+const ORDER_BY = {
+  ingredient_nutrients: 'ingredient_id,nutrient_id',
+  npn_safety_limits: 'species_id,supplement_type_id',
+  production_targets: 'species_id',
+};
+
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !key) {
@@ -29,12 +41,18 @@ const headers = key.startsWith('sb_') ? { apikey: key } : { apikey: key, Authori
 
 async function fetchAll(table) {
   const rows = [];
+  const order = ORDER_BY[table] || 'id';
   for (let offset = 0; ; offset += PAGE) {
-    const res = await fetch(`${url}/rest/v1/${table}?select=*&limit=${PAGE}&offset=${offset}`, { headers });
+    const res = await fetch(`${url}/rest/v1/${table}?select=*&order=${order}&limit=${PAGE}&offset=${offset}`, { headers });
     if (!res.ok) throw new Error(`${table}: HTTP ${res.status} ${await res.text()}`);
     const page = await res.json();
     rows.push(...page);
-    if (page.length < PAGE) return rows;
+    // Loop until an explicitly empty page rather than stopping as soon as a
+    // page comes back shorter than PAGE. PostgREST can be configured with
+    // its own max page size, so a request for PAGE rows isn't guaranteed to
+    // return that many even mid-table; an empty page is the only
+    // unambiguous end-of-table signal.
+    if (page.length === 0) return rows;
   }
 }
 
