@@ -15,7 +15,11 @@ import { createPocketBaseBackend } from './pocketbaseBackend.js';
 import { NUTRIENTS, SPECIES, SUPPLEMENT_TYPES, NPN_SAFETY_LIMITS, NUTRIENT_TARGETS, PRODUCTION_TARGETS, INGREDIENTS, PLAUSIBLE_RANGES, SEED_MIXES } from './seedData.js';
 import { computeMixResult } from './calc.js';
 
-const CACHE_KEY = 'ecovite.ingredientCache.v1';
+// Demo mode and the real backend must never share this cache: they hold
+// different ingredient ids/shapes, and a rep flipping ?demo on and off
+// (or an admin previewing demo mode on the same device as the real app)
+// must not clobber or serve the wrong one.
+const CACHE_KEY = `ecovite.ingredientCache.v1.${IS_CONFIGURED ? 'pocketbase' : 'demo'}`;
 const DEMO_STORE_KEY = 'ecovite.demoStore.v1';
 const DEMO_SESSION_KEY = 'ecovite.demoSession.v1';
 
@@ -373,6 +377,9 @@ export function getBackend() {
 export function resetDemoData() {
   localStorage.removeItem(DEMO_STORE_KEY);
   localStorage.removeItem(DEMO_SESSION_KEY);
+  // Only ever clears the demo-mode ingredient cache: CACHE_KEY is already
+  // mode-specific, and this function has no effect outside demo mode, so
+  // it can never touch the real app's offline ingredient cache.
   localStorage.removeItem(CACHE_KEY);
 }
 

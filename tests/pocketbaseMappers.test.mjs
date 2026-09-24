@@ -20,7 +20,9 @@ test('recordToIngredient fills every nutrient, keeps zero vs no-data, strips der
   assert.equal(ing.bagSizeKg, null);
   assert.equal(ing.pricePerBag, null);
   assert.equal(ing.pricePerTon, 11000);
-  assert.equal(ing.updated_at, '2026-09-24 10:00:00.000Z');
+  // PocketBase datetimes use a space instead of 'T' (e.g. "2026-09-24
+  // 10:00:00.000Z"), which Safari's Date parser rejects — normalise to ISO.
+  assert.equal(ing.updated_at, '2026-09-24T10:00:00.000Z');
   assert.deepEqual(Object.keys(ing.values).sort(), NUTRIENTS.map((n) => n.id).sort());
   assert.equal(ing.values.cp, 287);
   assert.equal(ing.values.tdn, 0);
@@ -82,7 +84,18 @@ test('recordToMix without an expanded owner or snapshot time', () => {
   assert.equal(mix.ownerName, 'Unknown');
   assert.equal(mix.ownerEmail, null);
   assert.equal(mix.lickFocus, null);
-  assert.equal(mix.savedAt, '2026-09-24 10:00:00.000Z');
+  // record.created is a PocketBase-format datetime (space, not 'T') —
+  // falling back to it must still normalise to ISO for Safari.
+  assert.equal(mix.savedAt, '2026-09-24T10:00:00.000Z');
+});
+
+test('recordToMix leaves the snapshot\'s own savedAt untouched (already ISO)', () => {
+  const mix = recordToMix({
+    id: 'm3', name: 'C', owner: 'u1', species: 'cattle', supplement_type: 'maintenance',
+    lick_focus: '', is_public: false, created: '2026-09-24 10:00:00.000Z',
+    snapshot: { savedAt: '2026-01-02T03:04:05.000Z', lines: [] },
+  });
+  assert.equal(mix.savedAt, '2026-01-02T03:04:05.000Z');
 });
 
 test('mergeNutrientTarget merges an existing target without mutating the input', () => {

@@ -7,6 +7,15 @@ import { NUTRIENTS } from './seedData.js';
 // Always calculated in js/calc.js, never stored (see calc.js header).
 const DERIVED_NUTRIENTS = ['npn', 'me'];
 
+// PocketBase datetimes look like "2026-09-24 10:00:00.000Z" — a space
+// instead of ISO 8601's 'T'. Safari's `Date` parser (and `new Date(...)`
+// generally, per spec) rejects that form, so anywhere one of these values
+// is handed to the UI it needs normalising first.
+function toIso(pbDateTime) {
+  if (!pbDateTime) return pbDateTime;
+  return pbDateTime.replace(' ', 'T');
+}
+
 export function recordToIngredient(record) {
   const values = {};
   for (const n of NUTRIENTS) values[n.id] = null;
@@ -23,7 +32,7 @@ export function recordToIngredient(record) {
     bagSizeKg: record.bag_size_kg || null,
     pricePerBag: record.price_per_bag || null,
     pricePerTon: record.price_per_ton ?? 0,
-    updated_at: record.updated,
+    updated_at: toIso(record.updated),
     values,
   };
 }
@@ -59,8 +68,10 @@ export function recordToMix(record) {
     supplementTypeId: record.supplement_type,
     lickFocus: record.lick_focus || null,
     // The snapshot's own timestamp survives a data import; `created` is
-    // reset to the import time for mixes brought over from Supabase.
-    savedAt: record.snapshot?.savedAt ?? record.created,
+    // reset to the import time for mixes brought over from Supabase. Leave
+    // the snapshot's own savedAt as-is (it's already ISO); only the
+    // PocketBase-format `created` fallback needs normalising.
+    savedAt: record.snapshot?.savedAt ?? toIso(record.created),
     snapshot: record.snapshot,
     isPublic: record.is_public,
   };

@@ -87,8 +87,8 @@ export async function renderUsersView(root, profile) {
         errorEl.hidden = false;
         return;
       }
-      if (password.length < 6) {
-        errorEl.textContent = 'Password must be at least 6 characters.';
+      if (password.length < 8) {
+        errorEl.textContent = 'Password must be at least 8 characters.';
         errorEl.hidden = false;
         return;
       }
