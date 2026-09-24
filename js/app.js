@@ -12,12 +12,12 @@ let activeTab = 'compare';
 
 async function boot() {
   const backend = await getBackend();
-  // Clicking the link in a "reset your password" email brings the rep back
-  // here with a one-time recovery token attached to the URL (creating the
-  // Supabase client above already consumed it into a temporary session) —
-  // show the "set a new password" screen instead of the normal app.
-  if (location.hash.includes('type=recovery')) {
-    renderResetPassword();
+  // The "reset your password" email links back here with a one-time token
+  // in the URL hash (see the email template in pb_migrations/). Show the
+  // "set a new password" screen instead of the normal app.
+  const resetMatch = location.hash.match(/reset-password=([^&]+)/);
+  if (resetMatch) {
+    renderResetPassword(decodeURIComponent(resetMatch[1]));
     return;
   }
   profile = await backend.getProfile();
@@ -28,16 +28,22 @@ async function boot() {
   }
 }
 
-function renderLogin() {
+function renderLogin({ notice } = {}) {
   const tpl = document.getElementById('tpl-login');
   appEl.innerHTML = '';
   appEl.appendChild(tpl.content.cloneNode(true));
+
+  if (notice) {
+    const hint = document.getElementById('demo-hint');
+    hint.hidden = false;
+    hint.textContent = notice;
+  }
 
   if (!IS_CONFIGURED) {
     const hint = document.getElementById('demo-hint');
     hint.hidden = false;
     hint.innerHTML =
-      'Running in demo mode (no Supabase project configured yet — see README.md).<br>' +
+      'Running in demo mode — nothing here reaches the server.<br>' +
       'Try it as <strong>admin@demo.local</strong> / <strong>admin123</strong><br>' +
       'or <strong>rep@demo.local</strong> / <strong>rep123</strong>.<br>' +
       'Seeing stale or missing data (e.g. no ingredient prices)? ' +
@@ -115,7 +121,7 @@ function renderForgotPassword() {
   });
 }
 
-function renderResetPassword() {
+function renderResetPassword(token) {
   const tpl = document.getElementById('tpl-reset-password');
   appEl.innerHTML = '';
   appEl.appendChild(tpl.content.cloneNode(true));
@@ -137,13 +143,11 @@ function renderResetPassword() {
     submitBtn.textContent = 'Saving…';
     try {
       const backend = await getBackend();
-      await backend.updatePassword(password);
-      // Drop the recovery token from the URL so refreshing the page
-      // doesn't re-trigger this screen once the password is already set.
-      history.replaceState(null, '', location.pathname);
-      profile = await backend.getProfile();
-      if (profile) renderShell();
-      else renderLogin();
+      await backend.confirmPasswordReset(token, password);
+      // Drop the token from the URL so refreshing the page doesn't
+      // re-trigger this screen once the password is already set.
+      history.replaceState(null, '', location.pathname + location.search);
+      renderLogin({ notice: 'Password updated — sign in with your new password.' });
     } catch (err) {
       errorEl.textContent = err.message || 'Could not set new password.';
       errorEl.hidden = false;
