@@ -1,0 +1,13 @@
+.git
+.claude
+.claudeignore.txt
+docs
+tests
+tools
+sql
+supabase
+migration-export
+pb_data
+node_modules
+package.json
+README.md
