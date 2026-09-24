@@ -7,91 +7,94 @@ a clean phone-friendly picker instead of a spreadsheet, and a handful of
 spreadsheet bugs can't happen anymore (see "What changed" below).
 
 It's a static site — no build step, no Node required. Everything runs as
-plain HTML/CSS/JS in the browser, talking to a [Supabase](https://supabase.com)
-project (free tier is plenty for 5-8 reps) for the ingredient database,
-login, and saved-mix history.
+plain HTML/CSS/JS in the browser, talking to a self-hosted
+[PocketBase](https://pocketbase.io) server (one small container on
+CapRover) for the ingredient database, login, and saved-mix history.
 
-## Try it with zero setup
+## Try it with zero setup (demo mode)
 
 **Don't just double-click `index.html`.** This app uses ES modules, which
-browsers refuse to load over the `file://` protocol — you'll get a
-"Loading…" screen that never finishes, with no error shown. It has to be
-served over `http://`, even locally. Two ways to do that, no Node needed:
+browsers refuse to load over `file://`. Serve it over `http://`:
 
 ```powershell
 powershell -File tools/static-server.ps1 -Port 8080
 ```
 
-or, since you have Python installed:
-
-```bash
-python -m http.server 8080
-```
-
-Then open `http://localhost:8080`. With `js/config.js` left untouched, the
-app runs in **demo mode**: an in-browser copy of the ingredient database,
-seeded from the workbook, persisted to `localStorage`.
+Then open `http://localhost:8080/?demo`. The `?demo` switches the app to an
+in-browser copy of the ingredient database, seeded from the workbook, and
+persisted to `localStorage`. Nothing reaches a server.
 
 - Admin: `admin@demo.local` / `admin123`
 - Rep: `rep@demo.local` / `rep123`
 
-Nothing you do in demo mode reaches a server — it's there so you (and your
-colleague) can click through the whole thing, including editing ingredients,
-before setting up Supabase.
+Seeing stale data after pulling a code update? Click **"Reset demo data"**
+on the login screen (or on the Settings tab as admin).
 
-**Seeing stale or missing data** (e.g. ingredients with no price) after
-pulling a code update? Demo mode seeds itself once per browser and never
-re-seeds on its own — it has no idea the underlying data changed. Click
-**"Reset demo data"** on the login screen (or, once signed in as admin,
-on the Settings tab) to wipe it and start fresh from the current code.
+## Running it locally with the real backend
 
-## Setting up the real backend (Supabase)
+```powershell
+powershell -File tools/get-pocketbase.ps1      # once: downloads PocketBase to tools/bin/
+powershell -File tools/dev-pocketbase.ps1      # serves the app + API on http://127.0.0.1:8090
+```
 
-1. Create a free project at [supabase.com](https://supabase.com).
-2. In the Supabase dashboard, go to **SQL Editor** and run, in this order:
-   - `sql/001_schema.sql`
-   - `sql/002_rls_policies.sql`
-   - `sql/003_seed_data.sql`
-3. In **Project Settings → API**, copy the **Project URL** and **anon public
-   key** into `js/config.js`:
-   ```js
-   export const SUPABASE_URL = 'https://xxxxx.supabase.co';
-   export const SUPABASE_ANON_KEY = 'eyJ...';
-   ```
-4. Create your reps as users: **Authentication → Users → Add user** (set an
-   email + password for each). A `profiles` row is created automatically
-   with `role = 'rep'`.
-5. Promote yourself (and anyone else who should manage the ingredient
-   database) to admin — in the SQL Editor:
-   ```sql
-   update profiles set role = 'admin' where id =
-     (select id from auth.users where email = 'you@example.com');
-   ```
-6. Reload the app — it's no longer in demo mode. Sign in with the account
-   you just promoted and you'll see the **Ingredients** and **Settings**
-   tabs.
+On Windows, if `tools/static-server.ps1` was extracted from a zip, run
+`Unblock-File tools/static-server.ps1` first or PowerShell will refuse to
+run it.
 
-From here, everything an admin does in the app (adding an ingredient,
-editing Act 36 limits, editing lick targets) writes straight to Supabase.
-Reps only ever get read access to that data — see `sql/002_rls_policies.sql`.
+First time only:
 
-## Deploying for your reps
+1. `tools/bin/pocketbase.exe superuser upsert you@example.com <password> --dir "$env:LOCALAPPDATA\ecovite-pocketbase\pb_data"`
+2. `node tools/seed-pocketbase.mjs http://127.0.0.1:8090 you@example.com <password>`
+3. In `http://127.0.0.1:8090/_/`, go to **users → New record** and create yourself
+   with role `admin` (tick Verified and Email visibility).
 
-Any static hosting works — there's nothing to build. The easiest options,
-all free at this scale:
+Tests: `npm test` (Node 24+, no `npm install` needed). The integration tests
+need the PocketBase binary from `tools/get-pocketbase.ps1` and skip
+themselves without it.
 
-- **Netlify / Cloudflare Pages**: drag the whole project folder onto their
-  dashboard, done.
-- **Vercel**: `vercel --prod` from this folder (or connect the folder via
-  their dashboard).
+## Deploying on CapRover
 
-Once it's live, each rep opens the URL on their phone, signs in, and taps
-**Add to Home Screen** (Safari: Share → Add to Home Screen; Chrome:
-⋮ menu → Add to Home Screen). It then opens full-screen with an icon like
-any other app, and keeps working with no signal — the full ingredient list
-is cached on the device the first time it loads, and only re-downloaded
-when you've actually changed something (see the "data as of" line at the
-bottom of the Compare Licks screen).
+PocketBase serves both the app and its API from one container (see
+`Dockerfile`). In CapRover:
+
+1. Create an app with **Has Persistent Data**; set Container HTTP Port
+   `8090`, persistent directory `/pb/pb_data`, instance count **1**
+   (SQLite: never scale it out).
+2. Enable HTTPS on its domain (required for offline use and install-to-home-screen).
+3. `npx caprover deploy` from this folder.
+4. Open the installer link printed in the app logs to create the superuser.
+5. In `https://<domain>/_/`, go to **Settings**:
+   - Set the Application URL to `https://<domain>`.
+   - Configure SMTP (needed for "Forgot password?").
+   - Turn on scheduled backups.
+6. Seed (`node tools/seed-pocketbase.mjs https://<domain> …`) **or** import
+   old Supabase data (below), then create your admin user as in the local
+   steps.
+
+Reps open the URL on their phone, sign in, and tap **Add to Home Screen**.
+The app then works with no signal: the app shell and the full ingredient
+list are cached on the device, and the list is only re-downloaded when an
+admin has changed something.
+
+Admins manage people on the **Users** tab (add a rep, remove a rep).
+Removing a user also removes everything they saved.
+
+## Moving data over from Supabase
+
+```powershell
+$env:SUPABASE_URL = 'https://xxxx.supabase.co'
+$env:SUPABASE_SERVICE_ROLE_KEY = '<secret key from Project Settings → API>'
+node tools/export-supabase.mjs
+node tools/import-supabase-export.mjs https://<domain> <superuser-email> <superuser-password>
+```
+
+Import into a fresh, **unseeded** server. Supabase passwords can't be
+carried over: every user gets a temporary password, listed in
+`migration-export/temp-passwords.csv` (gitignored; delete it once handed out).
+The import refuses to run unless the target server has no ingredients and
+no users yet; if it fails partway through, start again from a fresh
+`pb_data` rather than retrying — the temporary passwords for any users it
+already created are still in `migration-export/temp-passwords.csv`.
 
 ## Ingredient pricing
 
@@ -183,11 +186,10 @@ shows.
 
 The **History** tab lists every mix you've saved; clicking one opens the
 full detail exactly as described above. Reps only ever see their own —
-admins see every rep's, labelled with who saved it — enforced by the same
-row-level security as the ingredient database (`sql/002_rls_policies.sql`),
-not just by what the UI happens to show. The "Recently saved mixes" strip
-at the bottom of Compare Licks is a shortcut to your own last 5; History has
-the rest.
+admins see every rep's, labelled with who saved it — enforced server-side by
+the PocketBase access rules (`pb_migrations/`), not just by what the UI
+happens to show. The "Recently saved mixes" strip at the bottom of Compare
+Licks is a shortcut to your own last 5; History has the rest.
 
 ### Compare Saved Licks
 
@@ -254,8 +256,8 @@ patched:
 - **A saved comparison changing after the fact.** Editing an ingredient in
   the admin screen no longer touches a mix you've already saved — hitting
   "Save this mix" freezes a full copy of the ingredient values, inclusion,
-  cost, and computed results at that moment (`mix_snapshots` table), so a
-  comparison you've shown a farmer stays exactly as shown.
+  cost, and computed results at that moment (the mix's `snapshot` field), so
+  a comparison you've shown a farmer stays exactly as shown.
 - **Sanity-check on save.** Typing an implausible value (e.g. crude fibre
   of 250%) prompts a confirmation instead of silently saving — cheap
   insurance against the kind of typo that's easy to miss in a spreadsheet
@@ -271,22 +273,27 @@ until you fill them in with real figures.
 ## Project layout
 
 ```
-index.html            App shell + login screen
-css/style.css          Design system (theme, cards, forms)
-js/app.js               Auth + tab routing
-js/rep.js                Mix builder (Compare Licks tab)
-js/history.js              Saved-mix history + detail view
+index.html                  App shell + login screen
+css/style.css               Design system (theme, cards, forms)
+js/app.js                   Auth + tab routing
+js/rep.js                   Mix builder (Compare Licks tab)
+js/history.js               Saved-mix history + detail view
 js/mixRender.js             Result rendering shared by rep.js and history.js
-js/admin.js               Ingredient editor + Settings tab
-js/calc.js                 Calculation engine (pure functions, no DOM)
-js/db.js                    Data access layer (Supabase or local demo store)
-js/seedData.js               Ingredient matrix transcribed from the workbook
-js/config.js                  Your Supabase URL / anon key
-sql/001_schema.sql             Tables
-sql/002_rls_policies.sql        Row-level security
-sql/003_seed_data.sql            Same data as seedData.js, for Supabase
-manifest.webmanifest, sw.js       PWA install + offline app shell
-tools/static-server.ps1            Local dev server (no Node needed)
+js/report.js                Comparison report + PDF export
+js/admin.js                 Ingredient editor + Settings tab
+js/users.js                 Users tab (admins)
+js/calc.js                  Calculation engine (pure functions, no DOM)
+js/db.js                    Data access layer (PocketBase or ?demo store)
+js/pocketbaseBackend.js     PocketBase implementation of that layer
+js/pocketbaseMappers.js     Record <-> app-shape conversions
+js/vendor/pocketbase.es.mjs PocketBase JS SDK (vendored for offline use)
+js/seedData.js              Ingredient matrix transcribed from the workbook
+js/config.js                Demo-mode switch
+pb_migrations/              Database schema + access rules
+Dockerfile, captain-definition  CapRover deployment
+manifest.webmanifest, sw.js PWA install + offline app shell
+tools/                      Dev server, PocketBase download/run, seed, Supabase export/import
+tests/                      node:test unit + integration tests
 ```
 
 ## Known limitations (v1)
@@ -296,7 +303,3 @@ tools/static-server.ps1            Local dev server (no Node needed)
   versions. Swap in real PNG icons (192×192, 512×512) if that matters —
   just update `manifest.webmanifest` and the `apple-touch-icon` link in
   `index.html`.
-- Only two mixes are shown side by side by default (matching what you
-  described), not the six columns the original sheet supported. Reps can
-  still build one mix, save it, clear it, and build the next if they want
-  to compare more than two.

@@ -1,10 +1,8 @@
 // Canonical starting data set, transcribed cell-for-cell from the source
 // workbook (EcoVite Cost Comparison - 23032026 - AD.xlsx, "Input" sheet,
 // rows 11-38). This is the single source of truth for both:
-//   - the local demo/offline data layer (js/db.js when no Supabase config
-//     is present), and
-//   - sql/003_seed_data.sql, which mirrors it for a real Supabase project.
-// If you correct a value in one, correct it in the other.
+//   - the demo data layer (js/db.js in ?demo mode), and
+//   - tools/seed-pocketbase.mjs, which loads it into a fresh PocketBase.
 //
 // `null` means the source sheet left the cell blank (not analysed) — NOT
 // zero. Only cells that actually contained 0 in the workbook are written as
