@@ -1,0 +1,13 @@
+{
+  "name": "EcoVite Lick Cost Comparison",
+  "short_name": "EcoVite",
+  "description": "Build and compare cattle and sheep lick mixes by cost per head.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F3EEE3",
+  "theme_color": "#EDE6D9",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "192x192 512x512", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

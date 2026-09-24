@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ecovite-static",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools/static-server.ps1", "-Port", "8080"],
+      "port": 8080
+    },
+    {
+      "name": "ecovite-backup-demo",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\Users\\Andre\\OneDrive\\Personal Files BackUp\\Stephan Lick Project 2\\app\\tools\\static-server.ps1", "-Port", "8082"],
+      "port": 8082
+    },
+    {
+      "name": "hh-capacity-model",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "5174", "--directory", "C:\\Users\\Andre\\OneDrive\\Reimer Animal Health\\Happy Hounds Capacity Model"],
+      "port": 5174
+    }
+  ]
+}
