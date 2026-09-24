@@ -61,19 +61,45 @@ PocketBase serves both the app and its API from one container (see
    (SQLite: never scale it out).
 2. Enable HTTPS on its domain (required for offline use and install-to-home-screen).
 3. `npx caprover deploy` from this folder.
-4. Open the installer link printed in the app logs to create the superuser.
+4. The app logs print an installer link like
+   `http://0.0.0.0:8090/_/#/pbinstal/...` — replace the host part with
+   `https://<domain>` before opening it, then use that link to create the
+   superuser.
 5. In `https://<domain>/_/`, go to **Settings**:
-   - Set the Application URL to `https://<domain>`.
+   - Set the Application URL to the exact `https://<domain>` — the
+     "Forgot password?" email link is built from this value, so if it's
+     wrong or missing the scheme, the reset link sent to users will be too.
    - Configure SMTP (needed for "Forgot password?").
    - Turn on scheduled backups.
 6. Seed (`node tools/seed-pocketbase.mjs https://<domain> …`) **or** import
    old Supabase data (below), then create your admin user as in the local
    steps.
+7. Before handing out access, verify password reset end to end: from the
+   login screen, click "Forgot password?" for a test account, open the
+   emailed link, set a new password, and sign in with it. This is the only
+   way to catch a wrong Application URL or broken SMTP config before a rep
+   hits it in the field.
+8. Harden the deployment (recommended before go-live):
+   - Enable PocketBase's built-in rate limits for auth endpoints
+     (**Settings → Application**).
+   - In the same place, set the trusted proxy header
+     (`X-Forwarded-For`, set by CapRover's nginx) so those rate limits and
+     the request logs see real client IPs instead of the proxy's.
+   - Scheduled backups land on the same volume as the live data, so they
+     don't protect against losing the container/volume itself — copy
+     backups off the server (an S3 destination, or just download them
+     regularly).
 
 Reps open the URL on their phone, sign in, and tap **Add to Home Screen**.
 The app then works with no signal: the app shell and the full ingredient
 list are cached on the device, and the list is only re-downloaded when an
 admin has changed something.
+
+**Every deploy that changes any file under `js/`, `css/`, `index.html`,
+`manifest.webmanifest`, or `sw.js` must bump `CACHE_NAME` in `sw.js`** (e.g.
+`ecovite-shell-v73` → `v74`). Otherwise installed apps keep serving the old
+code from their offline cache indefinitely — there's no other signal that
+tells them a new shell exists.
 
 Admins manage people on the **Users** tab (add a rep, remove a rep).
 Removing a user also removes everything they saved.

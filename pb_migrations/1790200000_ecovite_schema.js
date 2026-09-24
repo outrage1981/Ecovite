@@ -1,6 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
-// EcoVite schema + access rules. The rules replicate what
-// sql/002_rls_policies.sql enforced on Supabase — see
+// EcoVite schema + access rules. The rules replicate what this project's
+// Supabase row-level security policies enforced before this migration —
+// those policies lived in sql/002_rls_policies.sql, now deleted from this
+// branch (see it in git history, commit b3b465e) — see
 // docs/superpowers/plans/2026-09-24-pocketbase-migration.md, "Design decisions".
 
 migrate((app) => {

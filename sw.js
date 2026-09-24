@@ -1,7 +1,9 @@
 // App-shell cache only. Never intercepts PocketBase API/dashboard calls or the CDN —
 // data freshness is handled by js/db.js's own version check, not by this
-// worker. Bump CACHE_NAME whenever you deploy a change so clients pick it
-// up instead of serving a stale shell.
+// worker. Bump CACHE_NAME (e.g. v73 -> v74) on every deploy that changes
+// any file under js/, css/, index.html, manifest.webmanifest, or this file
+// — otherwise installed apps keep serving the old code from their offline
+// cache indefinitely.
 const CACHE_NAME = 'ecovite-shell-v73';
 const SHELL_FILES = [
   './',
