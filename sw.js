@@ -48,7 +48,8 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    caches.match(event.request).then(
+    // ignoreVary: true — PocketBase sends `Vary: Origin` on static files, but module requests carry an Origin header the install-time cache.addAll() request didn't, so a Vary-aware match always misses; the shell cache only ever holds one copy per URL, so Vary buys nothing here.
+    caches.match(event.request, { ignoreVary: true }).then(
       (cached) =>
         cached ||
         fetch(event.request)
