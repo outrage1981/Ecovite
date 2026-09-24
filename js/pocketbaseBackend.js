@@ -3,6 +3,14 @@
 // exactly (except confirmPasswordReset, which replaces Supabase's
 // updatePassword). Access control is enforced server-side by the rules in
 // pb_migrations/, not by anything here.
+//
+// getSetting()/putSetting() also keep a small offline cache (one storage
+// entry per settings key, `ecovite.setting.<key>`) so npn_safety_limits,
+// nutrient_targets and production_targets stay available to a rep who's
+// signed in but has no signal — the same idea as js/db.js's ingredient
+// cache. Only a network failure (status 0) falls back to the cache; a real
+// error (403, 500, …) still throws, and a genuinely unset key (404) still
+// resolves to `fallback`, not a stale cached value.
 
 import { NUTRIENTS, SPECIES, SUPPLEMENT_TYPES } from './seedData.js';
 import {
@@ -15,18 +23,67 @@ const notFoundToNull = (err) => {
   throw err;
 };
 
-export function createPocketBaseBackend(pb) {
+// localStorage isn't always there (Node, a private-mode browser that
+// disables it, etc.) and can throw just by being touched, so probe it once
+// with a real read/write rather than trusting its mere existence.
+function defaultStorage() {
+  try {
+    const ls = globalThis.localStorage;
+    if (!ls) return null;
+    const probeKey = '__ecovite_storage_probe__';
+    ls.setItem(probeKey, '1');
+    ls.removeItem(probeKey);
+    return ls;
+  } catch {
+    return null;
+  }
+}
+
+export function createPocketBaseBackend(pb, { storage = defaultStorage() } = {}) {
   const users = () => pb.collection('users');
+  const settingCacheKey = (key) => `ecovite.setting.${key}`;
+
+  function readSettingCache(key) {
+    if (!storage) return undefined;
+    try {
+      const raw = storage.getItem(settingCacheKey(key));
+      return raw == null ? undefined : JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  }
+
+  function writeSettingCache(key, value) {
+    if (!storage) return;
+    try {
+      storage.setItem(settingCacheKey(key), JSON.stringify(value));
+    } catch {
+      // Storage full/disabled/etc. — the cache is a convenience, not a
+      // requirement, so a failure here shouldn't break the read/write.
+    }
+  }
 
   async function getSetting(key, fallback) {
-    const row = await pb.collection('settings').getFirstListItem(pb.filter('key = {:key}', { key })).catch(notFoundToNull);
-    return row?.value ?? fallback;
+    let row;
+    try {
+      row = await pb.collection('settings').getFirstListItem(pb.filter('key = {:key}', { key }));
+    } catch (err) {
+      if (err?.status === 404) return fallback; // genuinely unset — not a cache case
+      if (err?.status === 0) {
+        const cached = readSettingCache(key);
+        return cached === undefined ? fallback : cached;
+      }
+      throw err;
+    }
+    writeSettingCache(key, row.value);
+    return row.value ?? fallback;
   }
 
   async function putSetting(key, value) {
     const row = await pb.collection('settings').getFirstListItem(pb.filter('key = {:key}', { key })).catch(notFoundToNull);
     if (row) await pb.collection('settings').update(row.id, { value });
     else await pb.collection('settings').create({ key, value });
+    writeSettingCache(key, value);
   }
 
   const methods = {

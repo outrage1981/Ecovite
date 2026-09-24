@@ -5,6 +5,23 @@ import { seed } from '../tools/seed-pocketbase.mjs';
 import { createPocketBaseBackend } from '../js/pocketbaseBackend.js';
 import { NUTRIENTS, SPECIES, SUPPLEMENT_TYPES, NPN_SAFETY_LIMITS, PRODUCTION_TARGETS } from '../js/seedData.js';
 
+// A minimal Storage-shaped object (getItem/setItem), standing in for
+// localStorage in Node so the offline-settings-cache tests below don't
+// depend on a DOM.
+function createMemoryStorage() {
+  const store = new Map();
+  return {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => store.set(key, String(value)),
+    removeItem: (key) => store.delete(key),
+  };
+}
+
+// An unreachable loopback address (nothing listens on port 1), so requests
+// against it fail fast with a real connection error — the same status-0
+// "offline" shape the SDK gives for an actually-offline device.
+const UNREACHABLE_URL = 'http://127.0.0.1:1';
+
 describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
   let server, adminB, repA, repB;
   const backendFor = async (email, password = 'password123') => {
@@ -169,5 +186,54 @@ describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
     const c = await backendFor('c@test.local');
     await adminB.deleteUser(created.id);
     assert.equal(await c.getProfile(), null);
+  });
+
+  test('offline: a network failure falls back to the last cached setting', async () => {
+    const storage = createMemoryStorage();
+
+    // Online read populates the cache.
+    const onlinePb = newClient(server.url);
+    const onlineBackend = createPocketBaseBackend(onlinePb, { storage });
+    await onlineBackend.signIn('a@test.local', 'password123');
+    const limitsOnline = await onlineBackend.getNpnSafetyLimits();
+
+    // A second backend, same storage, pointed at an unreachable server but
+    // carrying a copy of the same signed-in session (as the real app would
+    // have from before it went offline).
+    const offlinePb = newClient(UNREACHABLE_URL);
+    offlinePb.authStore.save(onlinePb.authStore.token, onlinePb.authStore.record);
+    const offlineBackend = createPocketBaseBackend(offlinePb, { storage });
+
+    const limitsOffline = await offlineBackend.getNpnSafetyLimits();
+    assert.deepEqual(limitsOffline, limitsOnline);
+  });
+
+  test('offline: an empty cache falls back to the default, not an error', async () => {
+    const storage = createMemoryStorage();
+    const offlinePb = newClient(UNREACHABLE_URL);
+    const offlineBackend = createPocketBaseBackend(offlinePb, { storage });
+
+    assert.deepEqual(await offlineBackend.getNutrientTargets(), []);
+  });
+
+  test('a non-network error still throws instead of falling back', async () => {
+    // Reading settings while signed out isn't useful here: the settings
+    // list rule just filters out every row for an unauthenticated request,
+    // so getFirstListItem sees zero matches and throws a 404 — which this
+    // backend already (correctly) treats as "not set" and resolves to the
+    // fallback, not an error. That's not a real failure to verify against.
+    // Writing a setting as a non-admin is a genuine, non-network failure
+    // (the settings collection's create/update rule is admin-only), so
+    // that's the case used here to prove real errors aren't swallowed by
+    // the offline-cache fallback.
+    const storage = createMemoryStorage();
+    const repPb = newClient(server.url);
+    const repBackend = createPocketBaseBackend(repPb, { storage });
+    await repBackend.signIn('b@test.local', 'password123');
+
+    await assert.rejects(repBackend.upsertNpnSafetyLimit('cattle', 'maintenance', 999), (err) => {
+      assert.ok(typeof err.status === 'number' && err.status !== 0, `expected a non-zero error status, got ${err.status}`);
+      return true;
+    });
   });
 });
