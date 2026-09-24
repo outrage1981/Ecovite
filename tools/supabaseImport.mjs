@@ -85,10 +85,18 @@ export function remapIngredientIds(mix, ingredientIdMap) {
   };
 }
 
-export async function importIntoPocketBase(pb, data, { generatePassword }) {
-  const existing = await pb.collection('ingredients').getList(1, 1);
-  if (existing.totalItems > 0) {
-    throw new Error('Target database already has ingredients. Import into a fresh PocketBase (do not run the seed script first).');
+export async function importIntoPocketBase(pb, data, { generatePassword, onUserCreated }) {
+  const [existingIngredients, existingUsers] = await Promise.all([
+    pb.collection('ingredients').getList(1, 1),
+    pb.collection('users').getList(1, 1),
+  ]);
+  if (existingIngredients.totalItems > 0 || existingUsers.totalItems > 0) {
+    throw new Error(
+      'Target database already has ingredients or users. Import into a fresh PocketBase '
+      + '(delete pb_data and redeploy) — do not run the seed script or create any users first. '
+      + 'If a previous import failed partway through, start over from a fresh pb_data; the '
+      + 'passwords of any users it already created are in migration-export/temp-passwords.csv.'
+    );
   }
 
   const userIds = new Map();
@@ -100,7 +108,9 @@ export async function importIntoPocketBase(pb, data, { generatePassword }) {
       verified: true, emailVisibility: true,
     });
     userIds.set(u.oldId, rec.id);
-    tempPasswords.push({ email: u.email, password });
+    const entry = { email: u.email, password };
+    tempPasswords.push(entry);
+    onUserCreated?.(entry);
   }
 
   const ingredientIds = new Map();
