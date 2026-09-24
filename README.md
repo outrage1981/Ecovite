@@ -16,6 +16,9 @@ CapRover) for the ingredient database, login, and saved-mix history.
 **Don't just double-click `index.html`.** This app uses ES modules, which
 browsers refuse to load over `file://`. Serve it over `http://`:
 
+On Windows, if this folder came from a zip, unblock its scripts once first:
+`Get-ChildItem tools\*.ps1 | Unblock-File`.
+
 ```powershell
 powershell -File tools/static-server.ps1 -Port 8080
 ```
@@ -36,10 +39,6 @@ on the login screen (or on the Settings tab as admin).
 powershell -File tools/get-pocketbase.ps1      # once: downloads PocketBase to tools/bin/
 powershell -File tools/dev-pocketbase.ps1      # serves the app + API on http://127.0.0.1:8090
 ```
-
-On Windows, if `tools/static-server.ps1` was extracted from a zip, run
-`Unblock-File tools/static-server.ps1` first or PowerShell will refuse to
-run it.
 
 First time only:
 
