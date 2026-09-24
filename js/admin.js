@@ -348,7 +348,7 @@ export async function renderAdminSettings(root) {
       <div class="card">
         <h2>Demo mode</h2>
         <p class="muted">
-          No Supabase project is configured yet (see README.md) — everything here lives in this
+          You're in demo mode (?demo in the URL) — everything here lives in this
           browser's local storage, seeded once from the app's built-in data and never automatically
           refreshed. If you've updated the app's code and this browser is still showing old data
           (e.g. ingredients with no price), reset it below.

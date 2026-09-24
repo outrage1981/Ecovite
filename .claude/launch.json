@@ -18,6 +18,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5174", "--directory", "C:\\Users\\Andre\\OneDrive\\Reimer Animal Health\\Happy Hounds Capacity Model"],
       "port": 5174
+    },
+    {
+      "name": "ecovite-pocketbase",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "tools/dev-pocketbase.ps1", "-Port", "8090"],
+      "port": 8090
     }
   ]
 }
