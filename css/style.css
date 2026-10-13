@@ -8,6 +8,7 @@
   --text: #2E2A22;
   --text-muted: #746C5B;
   --text-faint: #9C927B;
+  --topbar-bg: rgba(243, 238, 227, 0.92);
 
   --accent: #5F7A5A;
   --accent-strong: #4A6146;
@@ -73,7 +74,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
   justify-content: space-between;
   gap: 12px;
   padding: 10px 16px;
-  background: rgba(243, 238, 227, 0.92);
+  background: var(--topbar-bg);
   backdrop-filter: blur(6px);
   border-bottom: 1px solid var(--border-soft);
 }
@@ -626,6 +627,7 @@ table.settings-table input { width: 110px; }
     --text: #EFE9DB;
     --text-muted: #B8AF9B;
     --text-faint: #85795F;
+    --topbar-bg: rgba(30, 28, 23, 0.92);
     --accent: #8FB08A;
     --accent-strong: #A6C6A0;
     --accent-soft: #34402F;

@@ -4,7 +4,7 @@
 // any file under js/, css/, index.html, manifest.webmanifest, or this file
 // — otherwise installed apps keep serving the old code from their offline
 // cache indefinitely.
-const CACHE_NAME = 'ecovite-shell-v73';
+const CACHE_NAME = 'ecovite-shell-v74';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -29,7 +29,13 @@ const SHELL_FILES = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_FILES)).then(() => self.skipWaiting())
+    // cache: 'reload' skips the browser's HTTP cache: PocketBase sends no
+    // Cache-Control, so a plain fetch here can be served a heuristically
+    // cached old copy and freeze stale code into the new CACHE_NAME.
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(SHELL_FILES.map((url) => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
   );
 });
 
