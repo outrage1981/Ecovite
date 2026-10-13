@@ -163,14 +163,14 @@ function buildMixRow(m, { root, profile, nutrients, speciesLabel, typeLabel, sho
     : 'No detail saved';
   const isFav = favoriteIds.has(m.id);
   const canDelete = m.ownerId === profile.id;
-  const canTogglePublic = isAdmin && canDelete;
+  const canTogglePublic = isAdmin && canDelete && !m.pending;
   const row = document.createElement('div');
   row.className = 'ing-row';
   row.innerHTML = `
     <div style="display:flex; align-items:center; gap:10px;">
       <button class="favorite-star${isFav ? ' is-favorite' : ''}" data-role="favorite-toggle" title="${isFav ? 'Remove from favourites' : 'Add to favourites'}">${isFav ? '★' : '☆'}</button>
       <div>
-        <strong>${escapeHtml(m.name)}</strong>${m.isPublic ? ' <span class="badge badge-safe">Shared</span>' : ''}
+        <strong>${escapeHtml(m.name)}</strong>${m.isPublic ? ' <span class="badge badge-safe">Shared</span>' : ''}${m.pending ? ` <span class="badge ${m.uploadError ? 'badge-risk' : 'badge-warn'}" title="${escapeHtml(m.uploadError || 'Saved on this device; uploads automatically once there’s signal')}">${m.uploadError ? 'Upload failed' : 'Waiting to upload'}</span>` : ''}
         <div class="ing-meta">
           ${escapeHtml(speciesLabel(m.speciesId))} · ${escapeHtml(typeLabel(m.supplementTypeId))} · ${costLine}
           <br>${escapeHtml(new Date(m.savedAt).toLocaleString())}${showOwner ? ` · ${escapeHtml(m.ownerEmail || m.ownerName || 'Unknown')}` : ''}

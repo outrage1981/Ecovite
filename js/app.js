@@ -25,6 +25,8 @@ async function boot() {
     renderLogin();
   } else {
     renderShell();
+    // Upload anything saved on this device while it had no signal.
+    backend.flushPendingMixes?.().catch(() => {});
   }
 }
 
@@ -184,6 +186,16 @@ function renderShell() {
 
   document.getElementById('logout-btn').addEventListener('click', async () => {
     const backend = await getBackend();
+    const pending = backend.pendingMixCount?.() ?? 0;
+    if (
+      pending > 0 &&
+      !confirm(
+        `${pending} saved change${pending === 1 ? " hasn't" : "s haven't"} uploaded yet (no signal). ` +
+          "They're kept on this device and will upload the next time you sign in here. Sign out anyway?"
+      )
+    ) {
+      return;
+    }
     await backend.signOut();
     resetRepViewState();
     profile = null;

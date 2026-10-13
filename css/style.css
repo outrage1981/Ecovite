@@ -329,6 +329,7 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .badge-risk { background: var(--risk-bg); color: var(--risk); }
 .badge-neutral { background: var(--surface-2); color: var(--text-faint); }
 .badge-clay { background: var(--clay-soft); color: var(--clay); }
+.badge-warn { background: var(--warn-bg); color: var(--warn); }
 
 /* ---------- mix builder ---------- */
 

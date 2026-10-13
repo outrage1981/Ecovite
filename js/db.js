@@ -12,6 +12,8 @@
 import PocketBase from './vendor/pocketbase.es.mjs';
 import { IS_CONFIGURED, POCKETBASE_URL } from './config.js';
 import { createPocketBaseBackend } from './pocketbaseBackend.js';
+import { recordToProfile } from './pocketbaseMappers.js';
+import { withOfflineMixQueue, PENDING_CHANGED_EVENT } from './offlineMixQueue.js';
 import { NUTRIENTS, SPECIES, SUPPLEMENT_TYPES, NPN_SAFETY_LIMITS, NUTRIENT_TARGETS, PRODUCTION_TARGETS, INGREDIENTS, PLAUSIBLE_RANGES, SEED_MIXES } from './seedData.js';
 import { computeMixResult } from './calc.js';
 
@@ -357,7 +359,15 @@ function buildPocketBaseBackend() {
   // endpoint starts; the app fires several reads in parallel (Promise.all
   // in rep.js/admin.js), so that behaviour has to be off.
   pb.autoCancellation(false);
-  return createPocketBaseBackend(pb);
+  // Saves/deletes made with no signal are queued on the device and
+  // uploaded once the server is reachable again (js/offlineMixQueue.js).
+  const backend = withOfflineMixQueue(createPocketBaseBackend(pb), {
+    storage: localStorage,
+    getUser: () => (pb.authStore.record ? recordToProfile(pb.authStore.record) : null),
+    onChange: (count) => window.dispatchEvent(new CustomEvent(PENDING_CHANGED_EVENT, { detail: { count } })),
+  });
+  window.addEventListener('online', () => backend.flushPendingMixes().catch(() => {}));
+  return backend;
 }
 
 let backendPromise = null;

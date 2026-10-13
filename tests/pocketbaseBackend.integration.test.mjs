@@ -162,6 +162,17 @@ describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
     assert.equal((await repA.listSavedMixes()).some((x) => x.id === saved.id), false);
   });
 
+  // js/offlineMixQueue.js relies on both halves of this: the id it picks on
+  // the device is kept, and a retried upload is told the id is taken.
+  test('saveMix keeps a client-picked id and rejects reusing it', async () => {
+    const id = 'offlinequeue001';
+    const mix = { id, name: 'Queued', speciesId: 'cattle', supplementTypeId: 'maintenance', lines: [], snapshot: snapshot('Queued') };
+    assert.equal((await repA.saveMix(mix)).id, id);
+    await assert.rejects(repA.saveMix(mix), (err) => err.status === 400 && err.data?.id?.code === 'validation_not_unique');
+    await repA.deleteSavedMix(id);
+    await assert.rejects(repA.deleteSavedMix(id), (err) => err.status === 404);
+  });
+
   test('saveMix without a lick focus stores null', async () => {
     const saved = await repA.saveMix({ name: 'No focus', speciesId: 'sheep', supplementTypeId: 'production', lines: [], snapshot: snapshot('No focus') });
     assert.equal((await repA.listSavedMixes()).find((x) => x.id === saved.id).lickFocus, null);

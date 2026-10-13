@@ -4,7 +4,7 @@
 // any file under js/, css/, index.html, manifest.webmanifest, or this file
 // — otherwise installed apps keep serving the old code from their offline
 // cache indefinitely.
-const CACHE_NAME = 'ecovite-shell-v74';
+const CACHE_NAME = 'ecovite-shell-v75';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -20,11 +20,18 @@ const SHELL_FILES = [
   './js/db.js',
   './js/pocketbaseBackend.js',
   './js/pocketbaseMappers.js',
+  './js/offlineMixQueue.js',
   './js/vendor/pocketbase.es.mjs',
+  './js/vendor/jspdf-2.5.2.umd.min.js',
+  './js/vendor/jspdf-autotable-3.8.4.mjs',
   './js/calc.js',
   './js/config.js',
   './js/seedData.js',
   './icons/icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (event) => {

@@ -95,6 +95,18 @@ The app then works with no signal: the app shell and the full ingredient
 list are cached on the device, and the list is only re-downloaded when an
 admin has changed something.
 
+With no signal a rep can still build and cost licks, **save** them (and
+override or delete saved ones), compare them side by side, and download
+the PDF report. Saves made offline are kept on the phone and shown in
+History as *Waiting to upload*; they upload by themselves the next time
+the app reaches the server (on reconnect, on opening the app, or when
+History loads). Each one gets its id on the phone, so a retry after a
+dropped connection can't create a duplicate. A save the server rejects is
+kept and marked *Upload failed* rather than lost. Signing out with uploads
+still waiting asks first; they stay on that phone and upload next time the
+same rep signs in there. Only the rep's own offline saves are shown —
+History doesn't otherwise show older saved mixes until there's signal.
+
 **Every deploy that changes any file under `js/`, `css/`, `index.html`,
 `manifest.webmanifest`, or `sw.js` must bump `CACHE_NAME` in `sw.js`** (e.g.
 `ecovite-shell-v73` → `v74`). Otherwise installed apps keep serving the old
@@ -311,7 +323,10 @@ js/calc.js                  Calculation engine (pure functions, no DOM)
 js/db.js                    Data access layer (PocketBase or ?demo store)
 js/pocketbaseBackend.js     PocketBase implementation of that layer
 js/pocketbaseMappers.js     Record <-> app-shape conversions
-js/vendor/pocketbase.es.mjs PocketBase JS SDK (vendored for offline use)
+js/offlineMixQueue.js       Offline save queue (saves/deletes made with no signal)
+js/vendor/                  PocketBase SDK, jsPDF 2.5.2 + jspdf-autotable 3.8.4
+                            (vendored unmodified, so they work offline)
+icons/                      App icons (SVG + PNG; apple-touch-icon.png for iOS)
 js/seedData.js              Ingredient matrix transcribed from the workbook
 js/config.js                Demo-mode switch
 pb_migrations/              Database schema + access rules
@@ -323,8 +338,5 @@ tests/                      node:test unit + integration tests
 
 ## Known limitations (v1)
 
-- The PWA icon is an SVG (`icons/icon.svg`). Android/Chrome handle this
-  fine; iOS's home-screen icon support for SVG is inconsistent across
-  versions. Swap in real PNG icons (192×192, 512×512) if that matters —
-  just update `manifest.webmanifest` and the `apple-touch-icon` link in
-  `index.html`.
+- Offline, History only shows mixes saved on that phone while offline;
+  previously uploaded mixes need a connection to list.

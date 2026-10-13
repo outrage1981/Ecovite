@@ -235,8 +235,11 @@ export function createPocketBaseBackend(pb, { storage = defaultStorage() } = {})
       await putSetting('production_targets', { ...current, [speciesId]: { protein, energy } });
     },
 
-    async saveMix({ name, speciesId, supplementTypeId, lickFocus, lines, snapshot }) {
+    // `id` is optional: js/offlineMixQueue.js picks it on the device so a
+    // retried upload is rejected as a duplicate instead of saved twice.
+    async saveMix({ id, name, speciesId, supplementTypeId, lickFocus, lines, snapshot }) {
       const record = await pb.collection('mixes').create({
+        ...(id ? { id } : {}),
         owner: pb.authStore.record?.id,
         name,
         species: speciesId,
@@ -270,7 +273,7 @@ export function createPocketBaseBackend(pb, { storage = defaultStorage() } = {})
       try {
         return await fn(...args);
       } catch (err) {
-        throw Object.assign(new Error(describePbError(err)), { status: err?.status });
+        throw Object.assign(new Error(describePbError(err)), { status: err?.status, data: err?.response?.data });
       }
     };
   }

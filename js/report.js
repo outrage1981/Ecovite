@@ -284,10 +284,15 @@ function openReportViewer({ snaps, comparisonTableEl, info }) {
 }
 
 async function downloadReportAsPdf(contentEl, info, mixCount) {
-  const [{ jsPDF }, autoTableModule] = await Promise.all([
-    import('https://esm.sh/jspdf@2'),
-    import('https://esm.sh/jspdf-autotable@3'),
+  // Both libraries are vendored (and pre-cached by sw.js) so PDF export
+  // works with no signal. jsPDF's UMD build sets globalThis.jspdf when
+  // imported; its ES build can't be used directly because it has a bare
+  // `@babel/runtime` import that browsers can't resolve.
+  const [, autoTableModule] = await Promise.all([
+    import('./vendor/jspdf-2.5.2.umd.min.js'),
+    import('./vendor/jspdf-autotable-3.8.4.mjs'),
   ]);
+  const { jsPDF } = globalThis.jspdf;
   const autoTable = autoTableModule.default;
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });

@@ -544,8 +544,9 @@ export async function renderRepView(root, profile) {
         result,
         savedAt: new Date().toISOString(),
       };
+      let saved;
       try {
-        await backend.saveMix({
+        saved = await backend.saveMix({
           name: mix.name.trim(),
           speciesId: state.speciesId,
           supplementTypeId: state.supplementTypeId,
@@ -565,8 +566,13 @@ export async function renderRepView(root, profile) {
       // next. A problem refreshing the on-screen history list afterward is
       // a display glitch, not a reason to tell the rep their mix didn't
       // save (it did).
-      statusEl.textContent = 'Saved — this comparison is now frozen and won’t change if ingredient data is edited later.';
-      statusEl.style.color = 'var(--safe)';
+      if (saved?.pending) {
+        statusEl.textContent = 'Saved on this device — no signal right now. It will upload automatically once you’re back online.';
+        statusEl.style.color = 'var(--warn)';
+      } else {
+        statusEl.textContent = 'Saved — this comparison is now frozen and won’t change if ingredient data is edited later.';
+        statusEl.style.color = 'var(--safe)';
+      }
       mix.isDirty = false;
       mix.savedSnapshot = snapshot;
       try {
