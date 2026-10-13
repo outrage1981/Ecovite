@@ -6,3 +6,6 @@ Thumbs.db
 tools/bin/
 pb_data/
 migration-export/
+
+# Local dev logins (generated, never commit)
+local-dev-credentials.txt
