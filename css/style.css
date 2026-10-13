@@ -317,6 +317,8 @@ p { margin: 0 0 8px; line-height: 1.45; }
 .auth-card { width: 100%; max-width: 380px; }
 .auth-card .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
 .demo-hint { font-size: 0.78rem; color: var(--text-faint); margin-top: 14px; line-height: 1.5; }
+.install-slot:not(:empty) { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-soft); }
+.install-note { margin: 0; line-height: 1.5; }
 
 /* ---------- badges ---------- */
 

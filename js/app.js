@@ -1,4 +1,5 @@
 import { getBackend, resetDemoData } from './db.js';
+import { mountInstallButton } from './install.js';
 import { IS_CONFIGURED } from './config.js';
 import { renderRepView, resetRepViewState } from './rep.js';
 import { renderAdminIngredients, renderAdminSettings } from './admin.js';
@@ -34,6 +35,7 @@ function renderLogin({ notice } = {}) {
   const tpl = document.getElementById('tpl-login');
   appEl.innerHTML = '';
   appEl.appendChild(tpl.content.cloneNode(true));
+  mountInstallButton(document.getElementById('install-slot'));
 
   if (notice) {
     const hint = document.getElementById('demo-hint');

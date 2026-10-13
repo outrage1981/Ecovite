@@ -90,7 +90,10 @@ PocketBase serves both the app and its API from one container (see
      backups off the server (an S3 destination, or just download them
      regularly).
 
-Reps open the URL on their phone, sign in, and tap **Add to Home Screen**.
+Reps open the URL on their phone, sign in, and tap **Add to Home Screen**
+— or use the **Install app** button on the login screen (Chrome/Edge on
+desktop and Android; on iPhone/iPad the login screen shows the Share →
+Add to Home Screen steps instead, since Safari has no install button API).
 The app then works with no signal: the app shell and the full ingredient
 list are cached on the device, and the list is only re-downloaded when an
 admin has changed something.
