@@ -1,5 +1,7 @@
-// Admin-only "Users" tab: add reps/admins and remove them. Any admin can
-// create either role — there's no separate "super admin" tier.
+// Admin-only "Users" tab: add, edit, set passwords for and remove reps and
+// admins. Any admin can manage either role — there's no separate "super
+// admin" tier — but nobody can change their own role, so an admin can't
+// lock themselves out by accident.
 
 import { getBackend } from './db.js';
 import { escapeHtml } from './app.js';
@@ -16,11 +18,16 @@ export async function renderUsersView(root, profile) {
     return;
   }
 
+  // Which row has a form open: { id, mode: 'edit' | 'password' } or null.
+  let open = null;
+  // One-line confirmation shown above the list after a save; cleared on the next action.
+  let notice = '';
+
   function render() {
     root.innerHTML = `
       <div class="card" style="margin-bottom:16px;">
         <h2>Add a user</h2>
-        <p class="muted">Sets their starting password directly — there's no in-app way for them to change it yet, so share it with them however you normally would.</p>
+        <p class="muted">Sets their starting password directly, so share it with them however you normally would. You can set a new one later with "Set password" below.</p>
         <div class="field-row">
           <label class="field"><span>Full name</span><input type="text" id="new-user-name" /></label>
           <label class="field"><span>Email</span><input type="email" id="new-user-email" /></label>
@@ -40,12 +47,15 @@ export async function renderUsersView(root, profile) {
 
       <div class="card">
         <h2>Existing users</h2>
+        ${notice ? `<p class="muted" id="users-notice">${escapeHtml(notice)}</p>` : ''}
         <div class="ing-list" id="users-list"></div>
       </div>
     `;
 
     const listEl = document.getElementById('users-list');
     users.forEach((u) => {
+      const isSelf = u.id === profile.id;
+      const formMode = open?.id === u.id ? open.mode : null;
       const row = document.createElement('div');
       row.className = 'ing-row';
       row.style.cursor = 'default';
@@ -55,10 +65,28 @@ export async function renderUsersView(root, profile) {
           <div class="ing-meta">
             ${escapeHtml(u.email)} ·
             <span class="badge ${u.role === 'admin' ? 'badge-clay' : 'badge-neutral'}">${escapeHtml(u.role)}</span>
+            ${isSelf ? '<span class="faint">(you)</span>' : ''}
           </div>
         </div>
-        ${u.id === profile.id ? '<span class="faint">(you)</span>' : '<button class="btn btn-danger btn-sm" data-role="delete-user">Remove</button>'}
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button class="btn btn-secondary btn-sm" data-role="edit-user">Edit</button>
+          <button class="btn btn-secondary btn-sm" data-role="password-user">Set password</button>
+          ${isSelf ? '' : '<button class="btn btn-danger btn-sm" data-role="delete-user">Remove</button>'}
+        </div>
+        ${formMode ? `<div style="flex-basis:100%;">${formMode === 'edit' ? editFormHtml(u, isSelf) : passwordFormHtml(u)}</div>` : ''}
       `;
+
+      const toggle = (mode) => {
+        open = formMode === mode ? null : { id: u.id, mode };
+        notice = '';
+        render();
+      };
+      row.querySelector('[data-role="edit-user"]').addEventListener('click', () => toggle('edit'));
+      row.querySelector('[data-role="password-user"]').addEventListener('click', () => toggle('password'));
+      row.querySelector('[data-role="cancel"]')?.addEventListener('click', () => { open = null; render(); });
+      row.querySelector('[data-role="save-edit"]')?.addEventListener('click', () => saveEdit(row, u, isSelf));
+      row.querySelector('[data-role="save-password"]')?.addEventListener('click', () => savePassword(row, u, isSelf));
+
       row.querySelector('[data-role="delete-user"]')?.addEventListener('click', async () => {
         if (!confirm(`Remove ${u.email}? This also permanently deletes any mixes they've saved.`)) return;
         try {
@@ -105,6 +133,78 @@ export async function renderUsersView(root, profile) {
         errorEl.hidden = false;
       }
     });
+  }
+
+  function editFormHtml(u, isSelf) {
+    const roleOption = (value, label) => `<option value="${value}" ${u.role === value ? 'selected' : ''}>${label}</option>`;
+    return `
+      <div class="field-row" style="margin-top:10px;">
+        <label class="field"><span>Full name</span><input type="text" data-field="name" value="${escapeHtml(u.full_name || '')}" /></label>
+        <label class="field"><span>Email</span><input type="email" data-field="email" value="${escapeHtml(u.email)}" /></label>
+        <label class="field">
+          <span>Role</span>
+          <select data-field="role" ${isSelf ? 'disabled title="You can\'t change your own role."' : ''}>
+            ${roleOption('rep', 'Rep')}${roleOption('admin', 'Admin')}
+          </select>
+        </label>
+      </div>
+      ${isSelf ? '<p class="faint">You can\'t change your own role — ask another admin.</p>' : ''}
+      <button class="btn btn-primary btn-sm" data-role="save-edit">Save</button>
+      <button class="btn btn-secondary btn-sm" data-role="cancel">Cancel</button>
+      <p class="form-error" data-field="error" hidden></p>
+    `;
+  }
+
+  function passwordFormHtml(u) {
+    return `
+      <div class="field-row" style="margin-top:10px;">
+        <label class="field"><span>New password for ${escapeHtml(u.email)}</span><input type="password" data-field="password" autocomplete="new-password" /></label>
+        <label class="field"><span>Repeat new password</span><input type="password" data-field="confirm" autocomplete="new-password" /></label>
+      </div>
+      <p class="faint">They'll be signed out on their other devices and must sign in with the new password.</p>
+      <button class="btn btn-primary btn-sm" data-role="save-password">Set password</button>
+      <button class="btn btn-secondary btn-sm" data-role="cancel">Cancel</button>
+      <p class="form-error" data-field="error" hidden></p>
+    `;
+  }
+
+  const showRowError = (row, message) => {
+    const el = row.querySelector('[data-field="error"]');
+    el.textContent = message;
+    el.hidden = false;
+  };
+
+  async function saveEdit(row, u, isSelf) {
+    const fullName = row.querySelector('[data-field="name"]').value.trim();
+    const email = row.querySelector('[data-field="email"]').value.trim();
+    const role = isSelf ? u.role : row.querySelector('[data-field="role"]').value;
+    if (!email) return showRowError(row, 'Email is required.');
+    try {
+      const updated = await backend.updateUser(u.id, { fullName, email, role });
+      users = users.map((x) => (x.id === u.id ? updated : x)).sort((a, b) => a.email.localeCompare(b.email));
+      open = null;
+      notice = `Saved changes to ${updated.email}.`;
+      render();
+    } catch (err) {
+      showRowError(row, err.message || 'Could not save changes.');
+    }
+  }
+
+  async function savePassword(row, u, isSelf) {
+    const password = row.querySelector('[data-field="password"]').value;
+    const confirmPassword = row.querySelector('[data-field="confirm"]').value;
+    if (password.length < 8) return showRowError(row, 'Password must be at least 8 characters.');
+    if (password !== confirmPassword) return showRowError(row, 'The two passwords don\'t match.');
+    try {
+      await backend.setUserPassword(u.id, password);
+      open = null;
+      notice = isSelf
+        ? 'Your password has been changed.'
+        : `Password set for ${u.email}. Share it with them however you normally would.`;
+      render();
+    } catch (err) {
+      showRowError(row, err.message || 'Could not set the password.');
+    }
   }
 
   render();

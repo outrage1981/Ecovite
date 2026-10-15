@@ -171,6 +171,27 @@ const demoBackend = {
     return { id: user.id, email: user.email, full_name: user.full_name, role: user.role };
   },
 
+  async updateUser(id, { fullName, email, role }) {
+    const store = loadDemoStore();
+    if (store.users.some((u) => u.id !== id && u.email.toLowerCase() === email.toLowerCase())) {
+      throw new Error('A user with that email already exists.');
+    }
+    const user = store.users.find((u) => u.id === id);
+    if (!user) throw new Error('That user no longer exists.');
+    Object.assign(user, { email, full_name: fullName || '', role });
+    saveDemoStore(store);
+    if (getDemoSession()?.id === id) setDemoSession(user);
+    return { id: user.id, email: user.email, full_name: user.full_name, role: user.role };
+  },
+
+  async setUserPassword(id, password) {
+    const store = loadDemoStore();
+    const user = store.users.find((u) => u.id === id);
+    if (!user) throw new Error('That user no longer exists.');
+    user.password = password;
+    saveDemoStore(store);
+  },
+
   async deleteUser(id) {
     const store = loadDemoStore();
     store.users = store.users.filter((u) => u.id !== id);

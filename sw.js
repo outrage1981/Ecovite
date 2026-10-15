@@ -4,7 +4,7 @@
 // any file under js/, css/, index.html, manifest.webmanifest, or this file
 // — otherwise installed apps keep serving the old code from their offline
 // cache indefinitely.
-const CACHE_NAME = 'ecovite-shell-v76';
+const CACHE_NAME = 'ecovite-shell-v77';
 const SHELL_FILES = [
   './',
   './index.html',

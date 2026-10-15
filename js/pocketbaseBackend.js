@@ -146,6 +146,20 @@ export function createPocketBaseBackend(pb, { storage = defaultStorage() } = {})
       return recordToProfile(record);
     },
 
+    // Admins may change email without a verification round-trip and set a
+    // password without the old one: both rely on the users manageRule.
+    async updateUser(id, { fullName, email, role }) {
+      const record = await users().update(id, { name: fullName || '', email, role });
+      return recordToProfile(record);
+    },
+
+    // Changing a password invalidates that user's existing sessions. When
+    // it's the caller's own, sign straight back in so they stay signed in.
+    async setUserPassword(id, password) {
+      const record = await users().update(id, { password, passwordConfirm: password });
+      if (id === pb.authStore.record?.id) await users().authWithPassword(record.email, password);
+    },
+
     async deleteUser(id) {
       await users().delete(id);
     },

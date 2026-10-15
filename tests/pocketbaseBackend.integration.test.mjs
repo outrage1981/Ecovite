@@ -199,6 +199,36 @@ describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
     assert.equal(await c.getProfile(), null);
   });
 
+  test('admins edit users and set their passwords; reps cannot', async () => {
+    const created = await adminB.createUser({ email: 'e@test.local', password: 'password123', fullName: 'Rep E', role: 'rep' });
+    const e = await backendFor('e@test.local');
+
+    const updated = await adminB.updateUser(created.id, { fullName: 'Erin', email: 'erin@test.local', role: 'admin' });
+    assert.deepEqual(
+      { email: updated.email, full_name: updated.full_name, role: updated.role },
+      { email: 'erin@test.local', full_name: 'Erin', role: 'admin' },
+    );
+    await assert.rejects(repA.updateUser(created.id, { fullName: 'x', email: 'erin@test.local', role: 'rep' }));
+    await assert.rejects(repA.setUserPassword(created.id, 'hijacked123'));
+
+    await adminB.setUserPassword(created.id, 'newpass456');
+    assert.equal(await e.getProfile(), null, 'old session is revoked by the password change');
+    const b = createPocketBaseBackend(newClient(server.url));
+    await assert.rejects(b.signIn('erin@test.local', 'password123'));
+    assert.equal((await b.signIn('erin@test.local', 'newpass456')).role, 'admin');
+
+    await adminB.deleteUser(created.id);
+  });
+
+  test('an admin who sets their own password stays signed in', async () => {
+    await createUser(server.superuser, { email: 'self@test.local', role: 'admin' });
+    const self = await backendFor('self@test.local');
+    const { id } = await self.getProfile();
+    await self.setUserPassword(id, 'changed789');
+    assert.equal((await self.getProfile())?.email, 'self@test.local');
+    await adminB.deleteUser(id);
+  });
+
   test('offline: a network failure falls back to the last cached setting', async () => {
     const storage = createMemoryStorage();
 

@@ -116,8 +116,11 @@ History doesn't otherwise show older saved mixes until there's signal.
 code from their offline cache indefinitely — there's no other signal that
 tells them a new shell exists.
 
-Admins manage people on the **Users** tab (add a rep, remove a rep).
-Removing a user also removes everything they saved.
+Admins manage people on the **Users** tab: add, edit (name, email, role),
+set a new password, or remove. Setting a password signs that person out on
+their other devices. Nobody can change their own role, so an admin can't
+demote themselves by accident. Removing a user also removes everything
+they saved.
 
 ## Moving data over from Supabase
 
