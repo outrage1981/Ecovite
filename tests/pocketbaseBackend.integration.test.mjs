@@ -24,7 +24,7 @@ const UNREACHABLE_URL = 'http://127.0.0.1:1';
 
 describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
   let server, adminB, repA, repB;
-  const backendFor = async (email, password = 'password123') => {
+  const backendFor = async (email, password = 'Test-pass-123') => {
     const b = createPocketBaseBackend(newClient(server.url));
     await b.signIn(email, password);
     return b;
@@ -187,12 +187,15 @@ describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
   });
 
   test('admins manage users; reps cannot', async () => {
-    const created = await adminB.createUser({ email: 'c@test.local', password: 'password123', fullName: 'Rep C', role: 'rep' });
-    assert.deepEqual({ email: created.email, full_name: created.full_name, role: created.role }, { email: 'c@test.local', full_name: 'Rep C', role: 'rep' });
+    const created = await adminB.createUser({ name: 'Rep', surname: 'C', email: 'c@test.local', password: 'Test-pass-123', role: 'rep' });
+    assert.deepEqual(
+      { email: created.email, name: created.name, surname: created.surname, full_name: created.full_name, role: created.role },
+      { email: 'c@test.local', name: 'Rep', surname: 'C', full_name: 'Rep C', role: 'rep' },
+    );
     const users = await adminB.listUsers();
     assert.ok(users.some((u) => u.email === 'c@test.local'));
     assert.deepEqual(users.map((u) => u.email), [...users.map((u) => u.email)].sort());
-    await assert.rejects(repA.createUser({ email: 'd@test.local', password: 'password123', fullName: '', role: 'admin' }));
+    await assert.rejects(repA.createUser({ name: 'D', surname: 'E', email: 'd@test.local', password: 'Test-pass-123', role: 'admin' }));
 
     const c = await backendFor('c@test.local');
     await adminB.deleteUser(created.id);
@@ -200,31 +203,48 @@ describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
   });
 
   test('admins edit users and set their passwords; reps cannot', async () => {
-    const created = await adminB.createUser({ email: 'e@test.local', password: 'password123', fullName: 'Rep E', role: 'rep' });
+    const created = await adminB.createUser({ name: 'Rep', surname: 'E', email: 'e@test.local', password: 'Test-pass-123', role: 'rep' });
     const e = await backendFor('e@test.local');
 
-    const updated = await adminB.updateUser(created.id, { fullName: 'Erin', email: 'erin@test.local', role: 'admin' });
+    const updated = await adminB.updateUser(created.id, { name: 'Erin', surname: 'Smit', email: 'erin@test.local', role: 'admin' });
     assert.deepEqual(
       { email: updated.email, full_name: updated.full_name, role: updated.role },
-      { email: 'erin@test.local', full_name: 'Erin', role: 'admin' },
+      { email: 'erin@test.local', full_name: 'Erin Smit', role: 'admin' },
     );
-    await assert.rejects(repA.updateUser(created.id, { fullName: 'x', email: 'erin@test.local', role: 'rep' }));
-    await assert.rejects(repA.setUserPassword(created.id, 'hijacked123'));
+    await assert.rejects(repA.updateUser(created.id, { name: 'x', surname: 'y', email: 'erin@test.local', role: 'rep' }));
+    await assert.rejects(repA.setUserPassword(created.id, 'Hijacked-123'));
 
-    await adminB.setUserPassword(created.id, 'newpass456');
+    await adminB.setUserPassword(created.id, 'New-pass-456');
     assert.equal(await e.getProfile(), null, 'old session is revoked by the password change');
     const b = createPocketBaseBackend(newClient(server.url));
-    await assert.rejects(b.signIn('erin@test.local', 'password123'));
-    assert.equal((await b.signIn('erin@test.local', 'newpass456')).role, 'admin');
+    await assert.rejects(b.signIn('erin@test.local', 'Test-pass-123'));
+    assert.equal((await b.signIn('erin@test.local', 'New-pass-456')).role, 'admin');
 
     await adminB.deleteUser(created.id);
+  });
+
+  // The server enforces the rule itself (pb_migrations/1790300000_...), so
+  // it holds even for callers that skip the app's own form checks.
+  test('the server rejects passwords that break the complexity rule', async () => {
+    const weak = ['Ab1!xyz', 'alllowercase-1', 'ALLUPPER-1', 'NoNumbers-here', 'NoSymbols123'];
+    for (const password of weak) {
+      await assert.rejects(
+        adminB.createUser({ name: 'W', surname: 'K', email: 'weak@test.local', password, role: 'rep' }),
+        (err) => err.status === 400 && /password/i.test(err.message),
+        `should reject ${password}`,
+      );
+    }
+    const ok = await adminB.createUser({ name: 'S', surname: 'T', email: 'strong@test.local', password: 'Abcdef1!', role: 'rep' });
+    await assert.rejects(adminB.setUserPassword(ok.id, 'weakpassword'), (err) => err.status === 400);
+    await adminB.setUserPassword(ok.id, 'Long enough 9');
+    await adminB.deleteUser(ok.id);
   });
 
   test('an admin who sets their own password stays signed in', async () => {
     await createUser(server.superuser, { email: 'self@test.local', role: 'admin' });
     const self = await backendFor('self@test.local');
     const { id } = await self.getProfile();
-    await self.setUserPassword(id, 'changed789');
+    await self.setUserPassword(id, 'Changed-789');
     assert.equal((await self.getProfile())?.email, 'self@test.local');
     await adminB.deleteUser(id);
   });
@@ -235,7 +255,7 @@ describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
     // Online read populates the cache.
     const onlinePb = newClient(server.url);
     const onlineBackend = createPocketBaseBackend(onlinePb, { storage });
-    await onlineBackend.signIn('a@test.local', 'password123');
+    await onlineBackend.signIn('a@test.local', 'Test-pass-123');
     const limitsOnline = await onlineBackend.getNpnSafetyLimits();
 
     // A second backend, same storage, pointed at an unreachable server but
@@ -270,7 +290,7 @@ describe('createPocketBaseBackend', { skip: SKIP_REASON }, () => {
     const storage = createMemoryStorage();
     const repPb = newClient(server.url);
     const repBackend = createPocketBaseBackend(repPb, { storage });
-    await repBackend.signIn('b@test.local', 'password123');
+    await repBackend.signIn('b@test.local', 'Test-pass-123');
 
     await assert.rejects(repBackend.upsertNpnSafetyLimit('cattle', 'maintenance', 999), (err) => {
       assert.ok(typeof err.status === 'number' && err.status !== 0, `expected a non-zero error status, got ${err.status}`);

@@ -173,7 +173,7 @@ function buildMixRow(m, { root, profile, nutrients, speciesLabel, typeLabel, sho
         <strong>${escapeHtml(m.name)}</strong>${m.isPublic ? ' <span class="badge badge-safe">Shared</span>' : ''}${m.pending ? ` <span class="badge ${m.uploadError ? 'badge-risk' : 'badge-warn'}" title="${escapeHtml(m.uploadError || 'Saved on this device; uploads automatically once there’s signal')}">${m.uploadError ? 'Upload failed' : 'Waiting to upload'}</span>` : ''}
         <div class="ing-meta">
           ${escapeHtml(speciesLabel(m.speciesId))} · ${escapeHtml(typeLabel(m.supplementTypeId))} · ${costLine}
-          <br>${escapeHtml(new Date(m.savedAt).toLocaleString())}${showOwner ? ` · ${escapeHtml(m.ownerEmail || m.ownerName || 'Unknown')}` : ''}
+          <br>${escapeHtml(new Date(m.savedAt).toLocaleString())}${showOwner ? ` · ${escapeHtml(m.ownerName || m.ownerEmail || 'Unknown')}` : ''}
         </div>
       </div>
     </div>
@@ -236,7 +236,7 @@ function openDetail(mix, nutrients, speciesLabel, typeLabel, showOwner, profile)
           <h2>${escapeHtml(mix.name)}</h2>
           <p class="faint" style="margin:0;">
             ${escapeHtml(speciesLabel(mix.speciesId))} · ${escapeHtml(typeLabel(mix.supplementTypeId))}
-            · ${escapeHtml(new Date(mix.savedAt).toLocaleString())}${showOwner ? ` · ${escapeHtml(mix.ownerEmail || mix.ownerName || 'Unknown')}` : ''}
+            · ${escapeHtml(new Date(mix.savedAt).toLocaleString())}${showOwner ? ` · ${escapeHtml(mix.ownerName || mix.ownerEmail || 'Unknown')}` : ''}
           </p>
         </div>
         <button class="icon-btn" data-role="close">✕</button>

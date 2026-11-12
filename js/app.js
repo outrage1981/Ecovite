@@ -1,5 +1,6 @@
 import { getBackend, resetDemoData } from './db.js';
 import { mountInstallButton } from './install.js';
+import { passwordProblem, PASSWORD_HINT } from './passwordPolicy.js';
 import { IS_CONFIGURED } from './config.js';
 import { renderRepView, resetRepViewState } from './rep.js';
 import { renderAdminIngredients, renderAdminSettings } from './admin.js';
@@ -130,6 +131,7 @@ function renderResetPassword(token) {
   appEl.innerHTML = '';
   appEl.appendChild(tpl.content.cloneNode(true));
 
+  document.getElementById('reset-password-hint').textContent = PASSWORD_HINT;
   const form = document.getElementById('reset-password-form');
   const errorEl = document.getElementById('reset-password-error');
   form.addEventListener('submit', async (e) => {
@@ -137,8 +139,9 @@ function renderResetPassword(token) {
     errorEl.hidden = true;
     const data = new FormData(form);
     const password = data.get('password');
-    if (password !== data.get('confirmPassword')) {
-      errorEl.textContent = 'Passwords do not match.';
+    const problem = passwordProblem(password) || (password !== data.get('confirmPassword') ? 'Passwords do not match.' : null);
+    if (problem) {
+      errorEl.textContent = problem;
       errorEl.hidden = false;
       return;
     }

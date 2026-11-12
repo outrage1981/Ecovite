@@ -55,11 +55,17 @@ test('ingredientToRecord defaults missing pricing', () => {
   assert.equal(rec.price_per_ton, 0);
 });
 
-test('recordToProfile maps name to full_name', () => {
+test('recordToProfile keeps name and surname and joins them into full_name', () => {
   assert.deepEqual(
-    recordToProfile({ id: 'u1', email: 'a@b.c', name: 'Anna', role: 'admin', verified: true }),
-    { id: 'u1', email: 'a@b.c', full_name: 'Anna', role: 'admin' }
+    recordToProfile({ id: 'u1', email: 'a@b.c', name: 'Anna', surname: 'van Wyk', role: 'admin', verified: true }),
+    { id: 'u1', email: 'a@b.c', name: 'Anna', surname: 'van Wyk', full_name: 'Anna van Wyk', role: 'admin' }
   );
+});
+
+test('recordToProfile copes with a missing surname or name', () => {
+  assert.equal(recordToProfile({ id: 'u1', email: 'a@b.c', name: 'Anna', role: 'rep' }).full_name, 'Anna');
+  assert.equal(recordToProfile({ id: 'u1', email: 'a@b.c', name: '', surname: 'Smit', role: 'rep' }).full_name, 'Smit');
+  assert.equal(recordToProfile({ id: 'u1', email: 'a@b.c', role: 'rep' }).full_name, '');
 });
 
 test('recordToMix uses the expanded owner and the snapshot save time', () => {
@@ -67,10 +73,10 @@ test('recordToMix uses the expanded owner and the snapshot save time', () => {
   const mix = recordToMix({
     id: 'm1', name: 'Mix A', owner: 'u1', species: 'cattle', supplement_type: 'maintenance',
     lick_focus: 'protein', is_public: true, snapshot, created: '2026-09-24 10:00:00.000Z',
-    expand: { owner: { name: 'Anna', email: 'a@b.c' } },
+    expand: { owner: { name: 'Anna', surname: 'van Wyk', email: 'a@b.c' } },
   });
   assert.deepEqual(mix, {
-    id: 'm1', name: 'Mix A', ownerId: 'u1', ownerName: 'Anna', ownerEmail: 'a@b.c',
+    id: 'm1', name: 'Mix A', ownerId: 'u1', ownerName: 'Anna van Wyk', ownerEmail: 'a@b.c',
     speciesId: 'cattle', supplementTypeId: 'maintenance', lickFocus: 'protein',
     savedAt: '2026-01-02T03:04:05.000Z', snapshot, isPublic: true,
   });
@@ -81,7 +87,7 @@ test('recordToMix without an expanded owner or snapshot time', () => {
     id: 'm2', name: 'B', owner: 'u9', species: 'sheep', supplement_type: 'production',
     lick_focus: '', is_public: false, snapshot: {}, created: '2026-09-24 10:00:00.000Z',
   });
-  assert.equal(mix.ownerName, 'Unknown');
+  assert.equal(mix.ownerName, null); // the UI then falls back to the email, then 'Unknown'
   assert.equal(mix.ownerEmail, null);
   assert.equal(mix.lickFocus, null);
   // record.created is a PocketBase-format datetime (space, not 'T') —

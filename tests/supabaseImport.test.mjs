@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { transformSupabaseExport, remapIngredientIds } from '../tools/supabaseImport.mjs';
+import { transformSupabaseExport, remapIngredientIds, splitFullName } from '../tools/supabaseImport.mjs';
 import { FIXTURE } from './fixtures/supabaseExport.mjs';
 
 test('transform maps users, ingredients and overrides', () => {
   const out = transformSupabaseExport(FIXTURE);
   assert.deepEqual(out.users, [
-    { oldId: 'u-admin', email: 'ada@test.local', name: 'Ada', role: 'admin' },
-    { oldId: 'u-rep', email: 'rep@test.local', name: '', role: 'rep' },
+    { oldId: 'u-admin', email: 'ada@test.local', name: 'Ada', surname: '', role: 'admin' },
+    { oldId: 'u-rep', email: 'rep@test.local', name: '', surname: '', role: 'rep' },
   ]);
   assert.deepEqual(out.ingredients[0], {
     oldId: 'i-urea',
@@ -50,4 +50,10 @@ test('remapIngredientIds rewrites lines and snapshot lines, leaves unknown ids',
   assert.deepEqual(out.lines, [{ ingredientId: 'pb123' }, { ingredientId: 'gone' }]);
   assert.deepEqual(out.snapshot, { savedAt: 'x', lines: [{ ingredientId: 'pb123', ingredientName: 'Urea' }] });
   assert.equal(mix.lines[0].ingredientId, 'i-urea');
+});
+
+test('splitFullName puts the first word in name and the rest in surname', () => {
+  assert.deepEqual(splitFullName('Anna van Wyk'), { name: 'Anna', surname: 'van Wyk' });
+  assert.deepEqual(splitFullName('  Ada  '), { name: 'Ada', surname: '' });
+  assert.deepEqual(splitFullName(null), { name: '', surname: '' });
 });

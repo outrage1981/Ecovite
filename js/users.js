@@ -5,6 +5,10 @@
 
 import { getBackend } from './db.js';
 import { escapeHtml } from './app.js';
+import { passwordProblem, PASSWORD_HINT } from './passwordPolicy.js';
+
+// Listed by display name ("Name Surname"), falling back to email.
+const byDisplayName = (a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email);
 
 export async function renderUsersView(root, profile) {
   root.innerHTML = `<div class="empty-state">Loading…</div>`;
@@ -12,7 +16,7 @@ export async function renderUsersView(root, profile) {
 
   let users;
   try {
-    users = await backend.listUsers();
+    users = (await backend.listUsers()).sort(byDisplayName);
   } catch (err) {
     root.innerHTML = `<div class="card empty-state">Could not load users: ${escapeHtml(err.message || String(err))}</div>`;
     return;
@@ -29,9 +33,12 @@ export async function renderUsersView(root, profile) {
         <h2>Add a user</h2>
         <p class="muted">Sets their starting password directly, so share it with them however you normally would. You can set a new one later with "Set password" below.</p>
         <div class="field-row">
-          <label class="field"><span>Full name</span><input type="text" id="new-user-name" /></label>
-          <label class="field"><span>Email</span><input type="email" id="new-user-email" /></label>
-          <label class="field"><span>Password</span><input type="password" id="new-user-password" /></label>
+          <label class="field"><span>Name</span><input type="text" id="new-user-name" autocomplete="off" /></label>
+          <label class="field"><span>Surname</span><input type="text" id="new-user-surname" autocomplete="off" /></label>
+          <label class="field"><span>Email</span><input type="email" id="new-user-email" autocomplete="off" /></label>
+        </div>
+        <div class="field-row">
+          <label class="field"><span>Password</span><input type="password" id="new-user-password" autocomplete="new-password" /></label>
           <label class="field">
             <span>Role</span>
             <select id="new-user-role">
@@ -40,6 +47,7 @@ export async function renderUsersView(root, profile) {
             </select>
           </label>
         </div>
+        <p class="faint">${escapeHtml(PASSWORD_HINT)}</p>
         <button class="btn btn-primary" id="add-user-btn">Add user</button>
         <p class="form-error" id="add-user-error" hidden></p>
         <p class="faint" id="add-user-status"></p>
@@ -88,7 +96,7 @@ export async function renderUsersView(root, profile) {
       row.querySelector('[data-role="save-password"]')?.addEventListener('click', () => savePassword(row, u, isSelf));
 
       row.querySelector('[data-role="delete-user"]')?.addEventListener('click', async () => {
-        if (!confirm(`Remove ${u.email}? This also permanently deletes any mixes they've saved.`)) return;
+        if (!confirm(`Remove ${u.full_name || u.email}? This also permanently deletes any mixes they've saved.`)) return;
         try {
           await backend.deleteUser(u.id);
           users = users.filter((x) => x.id !== u.id);
@@ -105,26 +113,25 @@ export async function renderUsersView(root, profile) {
       const statusEl = document.getElementById('add-user-status');
       errorEl.hidden = true;
 
-      const fullName = document.getElementById('new-user-name').value.trim();
+      const name = document.getElementById('new-user-name').value.trim();
+      const surname = document.getElementById('new-user-surname').value.trim();
       const email = document.getElementById('new-user-email').value.trim();
       const password = document.getElementById('new-user-password').value;
       const role = document.getElementById('new-user-role').value;
 
-      if (!email || !password) {
-        errorEl.textContent = 'Email and password are required.';
-        errorEl.hidden = false;
-        return;
-      }
-      if (password.length < 8) {
-        errorEl.textContent = 'Password must be at least 8 characters.';
+      const problem = !name || !surname || !email
+        ? 'Name, surname and email are required.'
+        : passwordProblem(password);
+      if (problem) {
+        errorEl.textContent = problem;
         errorEl.hidden = false;
         return;
       }
 
       statusEl.textContent = 'Adding…';
       try {
-        const created = await backend.createUser({ email, password, fullName, role });
-        users.push(created);
+        const created = await backend.createUser({ name, surname, email, password, role });
+        users = [...users, created].sort(byDisplayName);
         statusEl.textContent = '';
         render();
       } catch (err) {
@@ -139,7 +146,8 @@ export async function renderUsersView(root, profile) {
     const roleOption = (value, label) => `<option value="${value}" ${u.role === value ? 'selected' : ''}>${label}</option>`;
     return `
       <div class="field-row" style="margin-top:10px;">
-        <label class="field"><span>Full name</span><input type="text" data-field="name" value="${escapeHtml(u.full_name || '')}" /></label>
+        <label class="field"><span>Name</span><input type="text" data-field="name" value="${escapeHtml(u.name || '')}" /></label>
+        <label class="field"><span>Surname</span><input type="text" data-field="surname" value="${escapeHtml(u.surname || '')}" /></label>
         <label class="field"><span>Email</span><input type="email" data-field="email" value="${escapeHtml(u.email)}" /></label>
         <label class="field">
           <span>Role</span>
@@ -158,10 +166,10 @@ export async function renderUsersView(root, profile) {
   function passwordFormHtml(u) {
     return `
       <div class="field-row" style="margin-top:10px;">
-        <label class="field"><span>New password for ${escapeHtml(u.email)}</span><input type="password" data-field="password" autocomplete="new-password" /></label>
+        <label class="field"><span>New password for ${escapeHtml(u.full_name || u.email)}</span><input type="password" data-field="password" autocomplete="new-password" /></label>
         <label class="field"><span>Repeat new password</span><input type="password" data-field="confirm" autocomplete="new-password" /></label>
       </div>
-      <p class="faint">They'll be signed out on their other devices and must sign in with the new password.</p>
+      <p class="faint">${escapeHtml(PASSWORD_HINT)} They'll be signed out on their other devices and must sign in with the new password.</p>
       <button class="btn btn-primary btn-sm" data-role="save-password">Set password</button>
       <button class="btn btn-secondary btn-sm" data-role="cancel">Cancel</button>
       <p class="form-error" data-field="error" hidden></p>
@@ -175,15 +183,16 @@ export async function renderUsersView(root, profile) {
   };
 
   async function saveEdit(row, u, isSelf) {
-    const fullName = row.querySelector('[data-field="name"]').value.trim();
+    const name = row.querySelector('[data-field="name"]').value.trim();
+    const surname = row.querySelector('[data-field="surname"]').value.trim();
     const email = row.querySelector('[data-field="email"]').value.trim();
     const role = isSelf ? u.role : row.querySelector('[data-field="role"]').value;
-    if (!email) return showRowError(row, 'Email is required.');
+    if (!name || !surname || !email) return showRowError(row, 'Name, surname and email are required.');
     try {
-      const updated = await backend.updateUser(u.id, { fullName, email, role });
-      users = users.map((x) => (x.id === u.id ? updated : x)).sort((a, b) => a.email.localeCompare(b.email));
+      const updated = await backend.updateUser(u.id, { name, surname, email, role });
+      users = users.map((x) => (x.id === u.id ? updated : x)).sort(byDisplayName);
       open = null;
-      notice = `Saved changes to ${updated.email}.`;
+      notice = `Saved changes to ${updated.full_name || updated.email}.`;
       render();
     } catch (err) {
       showRowError(row, err.message || 'Could not save changes.');
@@ -193,14 +202,15 @@ export async function renderUsersView(root, profile) {
   async function savePassword(row, u, isSelf) {
     const password = row.querySelector('[data-field="password"]').value;
     const confirmPassword = row.querySelector('[data-field="confirm"]').value;
-    if (password.length < 8) return showRowError(row, 'Password must be at least 8 characters.');
+    const problem = passwordProblem(password);
+    if (problem) return showRowError(row, problem);
     if (password !== confirmPassword) return showRowError(row, 'The two passwords don\'t match.');
     try {
       await backend.setUserPassword(u.id, password);
       open = null;
       notice = isSelf
         ? 'Your password has been changed.'
-        : `Password set for ${u.email}. Share it with them however you normally would.`;
+        : `Password set for ${u.full_name || u.email}. Share it with them however you normally would.`;
       render();
     } catch (err) {
       showRowError(row, err.message || 'Could not set the password.');

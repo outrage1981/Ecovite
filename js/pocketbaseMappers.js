@@ -52,8 +52,23 @@ export function ingredientToRecord(ingredient) {
   };
 }
 
+// "Name Surname", skipping whichever part is blank. This is what the app
+// shows people as; everyone still signs in with their email.
+export function displayName(name, surname) {
+  return [name, surname].map((s) => (s || '').trim()).filter(Boolean).join(' ');
+}
+
+// full_name is the combined display name; name and surname are kept
+// separately for the Users tab's edit form.
 export function recordToProfile(record) {
-  return { id: record.id, email: record.email, full_name: record.name, role: record.role };
+  return {
+    id: record.id,
+    email: record.email,
+    name: record.name || '',
+    surname: record.surname || '',
+    full_name: displayName(record.name, record.surname),
+    role: record.role,
+  };
 }
 
 export function recordToMix(record) {
@@ -62,7 +77,9 @@ export function recordToMix(record) {
     id: record.id,
     name: record.name,
     ownerId: record.owner,
-    ownerName: owner?.name ?? 'Unknown',
+    // null when the owner isn't visible (a rep viewing an admin's shared
+    // mix); the UI then falls back to the email, then "Unknown".
+    ownerName: owner ? displayName(owner.name, owner.surname) || null : null,
     ownerEmail: owner?.email ?? null,
     speciesId: record.species,
     supplementTypeId: record.supplement_type,

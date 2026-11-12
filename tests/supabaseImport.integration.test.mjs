@@ -12,7 +12,7 @@ describe('Supabase import', { skip: SKIP_REASON }, () => {
     let n = 0;
     userCreatedCalls = [];
     result = await importIntoPocketBase(server.superuser, transformSupabaseExport(FIXTURE), {
-      generatePassword: () => `temp-password-${++n}`,
+      generatePassword: () => `Temp-password-${++n}`,
       onUserCreated: (p) => userCreatedCalls.push(p),
     });
   });
@@ -55,7 +55,7 @@ describe('Supabase import', { skip: SKIP_REASON }, () => {
 
   test('refuses to import into a database that already has ingredients', async () => {
     await assert.rejects(
-      importIntoPocketBase(server.superuser, transformSupabaseExport(FIXTURE), { generatePassword: () => 'x-password-1' }),
+      importIntoPocketBase(server.superuser, transformSupabaseExport(FIXTURE), { generatePassword: () => 'X-password-1' }),
       /already has ingredients/
     );
   });
@@ -71,7 +71,7 @@ describe('Supabase import users guard', { skip: SKIP_REASON }, () => {
 
   test('refuses to import into a database that already has users, even with no ingredients yet', async () => {
     await assert.rejects(
-      importIntoPocketBase(server.superuser, transformSupabaseExport(FIXTURE), { generatePassword: () => 'x-password-1' }),
+      importIntoPocketBase(server.superuser, transformSupabaseExport(FIXTURE), { generatePassword: () => 'X-password-1' }),
       /already has ingredients/
     );
   });

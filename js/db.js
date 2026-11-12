@@ -12,7 +12,7 @@
 import PocketBase from './vendor/pocketbase.es.mjs';
 import { IS_CONFIGURED, POCKETBASE_URL } from './config.js';
 import { createPocketBaseBackend } from './pocketbaseBackend.js';
-import { recordToProfile } from './pocketbaseMappers.js';
+import { recordToProfile, displayName } from './pocketbaseMappers.js';
 import { withOfflineMixQueue, PENDING_CHANGED_EVENT } from './offlineMixQueue.js';
 import { NUTRIENTS, SPECIES, SUPPLEMENT_TYPES, NPN_SAFETY_LIMITS, NUTRIENT_TARGETS, PRODUCTION_TARGETS, INGREDIENTS, PLAUSIBLE_RANGES, SEED_MIXES } from './seedData.js';
 import { computeMixResult } from './calc.js';
@@ -39,6 +39,9 @@ function loadDemoStore() {
     const store = JSON.parse(raw);
     // Backfill fields added to the store shape after this browser last seeded it.
     if (!store.productionTargets) store.productionTargets = { ...PRODUCTION_TARGETS };
+    // Users stored before Name/Surname were separate fields only have a
+    // combined full_name: split it on the first space.
+    for (const u of store.users) if (u.name === undefined) Object.assign(u, splitFullName(u.full_name));
     return store;
   }
 
@@ -61,8 +64,8 @@ function loadDemoStore() {
     nutrientTargets: NUTRIENT_TARGETS,
     productionTargets: { ...PRODUCTION_TARGETS },
     users: [
-      { id: 'demo-admin', email: 'admin@demo.local', password: 'admin123', full_name: 'Demo Admin', role: 'admin' },
-      { id: 'demo-rep', email: 'rep@demo.local', password: 'rep123', full_name: 'Demo Rep', role: 'rep' },
+      { id: 'demo-admin', email: 'admin@demo.local', password: 'admin123', name: 'Demo', surname: 'Admin', role: 'admin' },
+      { id: 'demo-rep', email: 'rep@demo.local', password: 'rep123', name: 'Demo', surname: 'Rep', role: 'rep' },
     ],
     mixes: [], // { id, ownerId, name, speciesId, supplementTypeId, lines, snapshot, savedAt }
   };
@@ -119,6 +122,17 @@ function getDemoSession() {
   return raw ? JSON.parse(raw) : null;
 }
 
+function splitFullName(fullName) {
+  const [name = '', ...rest] = (fullName || '').trim().split(/\s+/);
+  return { name, surname: rest.join(' ') };
+}
+
+// Same shape as pocketbaseMappers.js's recordToProfile.
+function demoProfile(u) {
+  const parts = u.name === undefined ? splitFullName(u.full_name) : u;
+  return { id: u.id, email: u.email, name: parts.name || '', surname: parts.surname || '', full_name: displayName(parts.name, parts.surname), role: u.role };
+}
+
 function setDemoSession(user) {
   if (user) localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(user));
   else localStorage.removeItem(DEMO_SESSION_KEY);
@@ -134,7 +148,7 @@ const demoBackend = {
     );
     if (!user) throw new Error('Incorrect email or password.');
     setDemoSession(user);
-    return { id: user.id, email: user.email, full_name: user.full_name, role: user.role };
+    return demoProfile(user);
   },
 
   async signOut() {
@@ -152,36 +166,36 @@ const demoBackend = {
   async getProfile() {
     const session = getDemoSession();
     if (!session) return null;
-    return { id: session.id, email: session.email, full_name: session.full_name, role: session.role };
+    return demoProfile(session);
   },
 
   async listUsers() {
     const store = loadDemoStore();
-    return store.users.map((u) => ({ id: u.id, email: u.email, full_name: u.full_name, role: u.role }));
+    return store.users.map(demoProfile);
   },
 
-  async createUser({ email, password, fullName, role }) {
+  async createUser({ name, surname, email, password, role }) {
     const store = loadDemoStore();
     if (store.users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
       throw new Error('A user with that email already exists.');
     }
-    const user = { id: uuid(), email, password, full_name: fullName || '', role };
+    const user = { id: uuid(), email, password, name: name || '', surname: surname || '', role };
     store.users.push(user);
     saveDemoStore(store);
-    return { id: user.id, email: user.email, full_name: user.full_name, role: user.role };
+    return demoProfile(user);
   },
 
-  async updateUser(id, { fullName, email, role }) {
+  async updateUser(id, { name, surname, email, role }) {
     const store = loadDemoStore();
     if (store.users.some((u) => u.id !== id && u.email.toLowerCase() === email.toLowerCase())) {
       throw new Error('A user with that email already exists.');
     }
     const user = store.users.find((u) => u.id === id);
     if (!user) throw new Error('That user no longer exists.');
-    Object.assign(user, { email, full_name: fullName || '', role });
+    Object.assign(user, { email, name: name || '', surname: surname || '', role });
     saveDemoStore(store);
     if (getDemoSession()?.id === id) setDemoSession(user);
-    return { id: user.id, email: user.email, full_name: user.full_name, role: user.role };
+    return demoProfile(user);
   },
 
   async setUserPassword(id, password) {
@@ -345,7 +359,7 @@ const demoBackend = {
     if (!session) return [];
     const withOwnerName = (m) => {
       const owner = store.users.find((u) => u.id === m.ownerId);
-      return { ...m, ownerName: owner?.full_name ?? 'Unknown', ownerEmail: owner?.email ?? null };
+      return { ...m, ownerName: owner ? demoProfile(owner).full_name || null : null, ownerEmail: owner?.email ?? null };
     };
     if (session.role === 'admin') return store.mixes.map(withOwnerName);
     return store.mixes.filter((m) => m.ownerId === session.id || m.isPublic).map(withOwnerName);

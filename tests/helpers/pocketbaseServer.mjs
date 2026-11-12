@@ -51,13 +51,13 @@ export async function startPocketBase({ port }) {
   };
 }
 
-export function createUser(superuser, { email, password = 'password123', role = 'rep', name = '' }) {
+export function createUser(superuser, { email, password = 'Test-pass-123', role = 'rep', name = '' }) {
   return superuser.collection('users').create({
     email, password, passwordConfirm: password, name, role, verified: true, emailVisibility: true,
   });
 }
 
-export async function clientFor(url, email, password = 'password123') {
+export async function clientFor(url, email, password = 'Test-pass-123') {
   const pb = newClient(url);
   await pb.collection('users').authWithPassword(email, password);
   return pb;

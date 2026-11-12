@@ -46,7 +46,7 @@ describe('PocketBase access rules', { skip: SKIP_REASON }, () => {
 
   test('users: reps cannot create users or promote themselves', async () => {
     await assert.rejects(repA.collection('users').create({
-      email: 'sneaky@test.local', password: 'password123', passwordConfirm: 'password123', role: 'admin',
+      email: 'sneaky@test.local', password: 'Test-pass-123', passwordConfirm: 'Test-pass-123', role: 'admin',
     }));
     await assert.rejects(repA.collection('users').update(ids.repA, { role: 'admin' }));
   });
@@ -56,7 +56,7 @@ describe('PocketBase access rules', { skip: SKIP_REASON }, () => {
     assert.ok(list.length >= 3);
     assert.ok(list.every((u) => u.email));
     const created = await admin.collection('users').create({
-      email: 'new@test.local', password: 'password123', passwordConfirm: 'password123',
+      email: 'new@test.local', password: 'Test-pass-123', passwordConfirm: 'Test-pass-123',
       role: 'rep', verified: true, emailVisibility: true,
     });
     assert.equal(created.role, 'rep');

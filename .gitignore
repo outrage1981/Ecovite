@@ -9,3 +9,6 @@ migration-export/
 
 # Local dev logins (generated, never commit)
 local-dev-credentials.txt
+
+# Bulk-created user sign-in details (tools/create-users.mjs) — contain passwords
+new-users/

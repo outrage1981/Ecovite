@@ -13,9 +13,9 @@
 //
 // Usage: node tools/import-supabase-export.mjs <url> <superuser-email> <superuser-password> [export-file]
 import { mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
 import PocketBase from '../js/vendor/pocketbase.es.mjs';
 import { transformSupabaseExport, importIntoPocketBase } from './supabaseImport.mjs';
+import { generatePassword } from '../js/passwordPolicy.js';
 
 const [url, email, password, file = 'migration-export/supabase-export.json'] = process.argv.slice(2);
 if (!url || !email || !password) {
@@ -38,7 +38,8 @@ mkdirSync('migration-export', { recursive: true });
 // never wipes out a temp-passwords.csv left over from a previous partial run.
 let passwordsFileStarted = false;
 const result = await importIntoPocketBase(pb, data, {
-  generatePassword: () => randomBytes(9).toString('base64url'),
+  // Always meets the password rule the server enforces (js/passwordPolicy.js).
+  generatePassword: () => generatePassword(),
   onUserCreated: ({ email: userEmail, password: userPassword }) => {
     if (!passwordsFileStarted) {
       writeFileSync(PASSWORDS_FILE, 'email,password\n');

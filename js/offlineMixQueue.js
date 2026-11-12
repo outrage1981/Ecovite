@@ -33,7 +33,7 @@ export function pendingToMix(op, user) {
     id: op.id,
     name: p.name,
     ownerId: user.id,
-    ownerName: user.full_name || 'Unknown',
+    ownerName: user.full_name || null,
     ownerEmail: user.email ?? null,
     speciesId: p.speciesId,
     supplementTypeId: p.supplementTypeId,

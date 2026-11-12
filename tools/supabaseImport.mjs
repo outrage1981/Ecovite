@@ -2,11 +2,19 @@
 // records and writes them, remapping old UUIDs to new PocketBase ids.
 
 const num = (v) => (v == null ? null : Number(v));
+
+// Supabase kept one full_name; PocketBase has Name and Surname. The first
+// word becomes the name, the rest the surname ("Anna van Wyk" -> "Anna",
+// "van Wyk"). Admins can correct any oddities on the Users tab.
+export function splitFullName(fullName) {
+  const [name = '', ...rest] = (fullName || '').trim().split(/\s+/);
+  return { name, surname: rest.join(' ') };
+}
 const DERIVED_NUTRIENTS = ['npn', 'me'];
 
 export function transformSupabaseExport(exp) {
   const users = exp.profiles.map((p) => ({
-    oldId: p.id, email: p.email, name: p.full_name ?? '', role: p.role === 'admin' ? 'admin' : 'rep',
+    oldId: p.id, email: p.email, ...splitFullName(p.full_name), role: p.role === 'admin' ? 'admin' : 'rep',
   }));
 
   const ingredients = exp.ingredients.map((row) => {
@@ -104,7 +112,7 @@ export async function importIntoPocketBase(pb, data, { generatePassword, onUserC
   for (const u of data.users) {
     const password = generatePassword();
     const rec = await pb.collection('users').create({
-      email: u.email, password, passwordConfirm: password, name: u.name, role: u.role,
+      email: u.email, password, passwordConfirm: password, name: u.name, surname: u.surname, role: u.role,
       verified: true, emailVisibility: true,
     });
     userIds.set(u.oldId, rec.id);

@@ -45,7 +45,7 @@ First time only:
 1. `tools/bin/pocketbase.exe superuser upsert you@example.com <password> --dir "$env:LOCALAPPDATA\ecovite-pocketbase\pb_data"`
 2. `node tools/seed-pocketbase.mjs http://127.0.0.1:8090 you@example.com <password>`
 3. In `http://127.0.0.1:8090/_/`, go to **users → New record** and create yourself
-   with role `admin` (tick Verified and Email visibility).
+   with role `admin`, your name and surname (tick Verified and Email visibility).
 
 Tests: `npm test` (Node 24+, no `npm install` needed). The integration tests
 need the PocketBase binary from `tools/get-pocketbase.ps1` and skip
@@ -116,8 +116,27 @@ History doesn't otherwise show older saved mixes until there's signal.
 code from their offline cache indefinitely — there's no other signal that
 tells them a new shell exists.
 
-Admins manage people on the **Users** tab: add, edit (name, email, role),
-set a new password, or remove. Setting a password signs that person out on
+Admins manage people on the **Users** tab: add, edit (name, surname, email,
+role), set a new password, or remove. Everyone signs in with their email;
+the app shows them by "Name Surname" (top bar, Users list, and who saved a
+mix in History).
+
+Passwords must be at least 8 characters with an uppercase letter, a
+lowercase letter, a number and a symbol. The forms check this first, and the
+server enforces it too (`pb_migrations/1790300000_user_surname_password_policy.js`),
+so it also applies to "Forgot password?" resets and anything set from the
+PocketBase dashboard. Existing passwords keep working; the rule applies the
+next time a password is set. Change it in `js/passwordPolicy.js` and that
+migration together.
+
+To add many people at once, list them one "Name Surname" per line and run
+`node tools/create-users.mjs <url> <superuser-email> <superuser-password> <names-file> [domain] [role]`.
+Each gets `<first name>@<domain>` (default `ecovite.local`), the `rep` role by
+default, and a random password meeting the rule; the sign-in details are
+written to `new-users/<timestamp>.csv` (gitignored; delete once handed out).
+Existing emails are skipped, so it's safe to re-run.
+
+Setting a password signs that person out on
 their other devices. Nobody can change their own role, so an admin can't
 demote themselves by accident. Removing a user also removes everything
 they saved.
@@ -325,6 +344,8 @@ js/mixRender.js             Result rendering shared by rep.js and history.js
 js/report.js                Comparison report + PDF export
 js/admin.js                 Ingredient editor + Settings tab
 js/users.js                 Users tab (admins)
+js/passwordPolicy.js        Password complexity rule (mirrored server-side)
+tools/create-users.mjs      Bulk-add users from a list of names
 js/calc.js                  Calculation engine (pure functions, no DOM)
 js/db.js                    Data access layer (PocketBase or ?demo store)
 js/pocketbaseBackend.js     PocketBase implementation of that layer

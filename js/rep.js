@@ -743,7 +743,7 @@ export async function renderRepView(root, profile) {
       const costLine = m.snapshot?.result
         ? `R${fmt(m.snapshot.result.costPerTon, 0)}/ton · R${fmt(m.snapshot.result.costPerBag, 2)}/bag`
         : '';
-      const ownerLine = isAdmin ? ` · ${escapeHtml(m.ownerEmail || m.ownerName || 'Unknown')}` : '';
+      const ownerLine = isAdmin ? ` · ${escapeHtml(m.ownerName || m.ownerEmail || 'Unknown')}` : '';
       row.innerHTML = `
         <div>
           <strong>${escapeHtml(m.name)}</strong>

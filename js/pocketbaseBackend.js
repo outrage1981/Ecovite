@@ -138,9 +138,9 @@ export function createPocketBaseBackend(pb, { storage = defaultStorage() } = {})
       return (await users().getFullList({ sort: 'email' })).map(recordToProfile);
     },
 
-    async createUser({ email, password, fullName, role }) {
+    async createUser({ name, surname, email, password, role }) {
       const record = await users().create({
-        email, password, passwordConfirm: password, name: fullName || '', role,
+        email, password, passwordConfirm: password, name: name || '', surname: surname || '', role,
         verified: true, emailVisibility: true,
       });
       return recordToProfile(record);
@@ -148,8 +148,8 @@ export function createPocketBaseBackend(pb, { storage = defaultStorage() } = {})
 
     // Admins may change email without a verification round-trip and set a
     // password without the old one: both rely on the users manageRule.
-    async updateUser(id, { fullName, email, role }) {
-      const record = await users().update(id, { name: fullName || '', email, role });
+    async updateUser(id, { name, surname, email, role }) {
+      const record = await users().update(id, { name: name || '', surname: surname || '', email, role });
       return recordToProfile(record);
     },
 
